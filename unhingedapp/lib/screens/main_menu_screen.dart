@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart'; // Import for QR code generation
 
 import 'package:unhingedapp/screens/qr_scanner_screen.dart';
 import 'package:unhingedapp/screens/room_lobby_screen.dart'; // Import RoomLobbyScreen
+import 'package:unhingedapp/utils/name_generator.dart'; // Import the name generator
 
 class MainMenuScreen extends StatefulWidget {
   // Convert to StatefulWidget
@@ -37,7 +38,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         'players': {
           playerId: {
             'id': playerId,
-            'name': 'Player ${Random().nextInt(100)}', // Temporary name
+            'name': NameGenerator.generateRandomName(), // Use generated name
             'isHost': true,
           },
         },
@@ -89,8 +90,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
                 child: const Text('Go to Lobby'),
                 onPressed: () {
                   Navigator.of(context).pop(); // Close the dialog
-                  Navigator.pushReplacement(
-                    // Use pushReplacement to prevent going back to main menu from lobby
+                  Navigator.push(
+                    // Changed from pushReplacement
+                    // Use push to keep MainMenuScreen in the stack
                     context,
                     MaterialPageRoute(
                       builder:
@@ -147,7 +149,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         String playerId = _generatePlayerId();
         Map<String, dynamic> playerData = {
           'id': playerId,
-          'name': 'Player ${Random().nextInt(100)}', // Temporary name
+          'name': NameGenerator.generateRandomName(), // Use generated name
           'isHost': false,
         };
         await _databaseReference
@@ -156,8 +158,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
         print('Joined room with ID: $roomId as Player $playerId');
 
         if (!mounted) return;
-        Navigator.pushReplacement(
-          // Use pushReplacement
+        Navigator.push(
+          // Changed from pushReplacement
+          // Use push to keep MainMenuScreen in the stack
           context,
           MaterialPageRoute(
             builder:
