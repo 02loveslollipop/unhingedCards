@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:unhingedapp/screens/main_menu_screen.dart'; // Add this import
+import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:unhingedapp/screens/main_menu_screen.dart';
+import 'package:unhingedapp/screens/room_lobby_screen.dart'; // Import RoomLobbyScreen
+import 'firebase_options.dart';
 
-void main() {
+Future<void> main() async {
+  // Make main async
+  WidgetsFlutterBinding.ensureInitialized(); // Add this line
+  await Firebase.initializeApp(
+    // Add this block
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -12,35 +22,30 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Unhinged Cards', // Change title
-      theme: ThemeData(
+      title: 'Unhinged Card', // Change title
+      themeMode: ThemeMode.dark,
+      darkTheme: ThemeData(
         brightness: Brightness.dark,
-        primaryColor: Colors.black,
+        primarySwatch: Colors.blue,
         scaffoldBackgroundColor: Colors.black,
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.white),
-          bodyMedium: TextStyle(color: Colors.white),
-          displayLarge: TextStyle(color: Colors.white),
-          displayMedium: TextStyle(color: Colors.white),
-          displaySmall: TextStyle(color: Colors.white),
-          headlineMedium: TextStyle(color: Colors.white),
-          headlineSmall: TextStyle(color: Colors.white),
-          titleLarge: TextStyle(color: Colors.white),
-        ),
+        textTheme: GoogleFonts.latoTextTheme(ThemeData.dark().textTheme),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            backgroundColor: Colors.blueAccent,
+            foregroundColor: Colors.white,
           ),
         ),
-        // Remove or comment out the colorScheme if you want a simpler dark theme
-        // colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: Brightness.dark),
       ),
       home: const MainMenuScreen(), // Change this to MainMenuScreen
+      // Define routes for navigation (optional but good practice)
+      routes: {
+        '/lobby':
+            (context) => const RoomLobbyScreen(
+              roomId: '',
+              playerId: '',
+              isHost: false,
+            ), // Placeholder, will be replaced by actual navigation
+      },
     );
   }
 }
