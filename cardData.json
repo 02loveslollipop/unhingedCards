@@ -1,0 +1,28 @@
+[
+  {
+    "topicId": "base_set_en",
+    "topicName": "Base Set (English)",
+    "language": "en",
+    "description": "The standard set of cards for a hilarious game.",
+    "cards": [
+      { "text": "What's my secret power?", "type": "black", "pick": 1 },
+      { "text": "An unholy amount of glitter.", "type": "white" },
+      { "text": "Why am I sticky?", "type": "black", "pick": 1 },
+      { "text": "Crying into a bowl of cereal.", "type": "white" },
+      { "text": "A 50-foot-tall robot.", "type": "white" },
+      { "text": "What never fails to liven up the party?", "type": "black", "pick": 1 },
+      { "text": "The crushing weight of existential dread.", "type": "white" }
+    ]
+  },
+  {
+    "topicId": "food_set_en",
+    "topicName": "Foodie Fun (English)",
+    "language": "en",
+    "description": "A delicious deck for food lovers.",
+    "cards": [
+      { "text": "What's the secret ingredient?", "type": "black", "pick": 1 },
+      { "text": "An alarming amount of mayonnaise.", "type": "white" },
+      { "text": "Avocado toast.", "type": "white" }
+    ]
+  }
+]

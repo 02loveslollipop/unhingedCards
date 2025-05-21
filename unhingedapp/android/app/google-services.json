@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "98421763105",
+    "project_id": "unhingedcards-d866b",
+    "storage_bucket": "unhingedcards-d866b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98421763105:android:f0d2adffb04698b92dc760",
+        "android_client_info": {
+          "package_name": "com.example.unhingedapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAC0GC0_j5_rNOr6zfMKqutGQSlUvjh9RA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
