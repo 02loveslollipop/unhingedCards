@@ -92,9 +92,14 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       barrierDismissible: false,
       builder:
           (context) => AlertDialog(
-            title: const Text('Camera Permission Required'),
+            backgroundColor: Colors.grey[900],
+            title: const Text(
+              'Camera Permission Required',
+              style: TextStyle(color: Colors.white),
+            ),
             content: const Text(
               'This app needs camera access to scan QR codes. Please grant camera permission in your device settings.',
+              style: TextStyle(color: Colors.white70),
             ),
             actions: [
               TextButton(
@@ -104,6 +109,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                     context,
                   ).pop(); // Return to previous screen (MainMenuScreen)
                 },
+                style: TextButton.styleFrom(foregroundColor: Colors.grey),
                 child: const Text('Cancel'),
               ),
               TextButton(
@@ -111,6 +117,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                   Navigator.of(context).pop();
                   openAppSettings();
                 },
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
                 child: const Text('Open Settings'),
               ),
             ],
@@ -139,16 +146,32 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Enter Room ID Manually'),
+            backgroundColor: Colors.grey[900],
+            title: const Text(
+              'Enter Room ID Manually',
+              style: TextStyle(color: Colors.white),
+            ),
             content: TextField(
               controller: _mobileCodeController,
-              decoration: const InputDecoration(hintText: 'Enter Room ID'),
+              decoration: const InputDecoration(
+                hintText: 'Enter Room ID',
+                hintStyle: TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.grey),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white, width: 2.0),
+                ),
+              ),
+              style: const TextStyle(color: Colors.white),
+              cursorColor: Colors.white,
               autofocus: true,
               textCapitalization: TextCapitalization.characters,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(foregroundColor: Colors.grey),
                 child: const Text('Cancel'),
               ),
               TextButton(
@@ -159,6 +182,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                     // Navigator.of(context).pop(_mobileCodeController.text.trim());
                   }
                 },
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
                 child: const Text('Join'),
               ),
             ],
@@ -170,8 +194,8 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.black,
         duration: const Duration(seconds: 3),
       ),
     );
@@ -190,6 +214,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(isDesktop ? 'Enter Room ID' : 'Scan QR Code'),
+        backgroundColor: Colors.black,
         actions: [
           if (!isDesktop) ...[
             IconButton(
@@ -222,7 +247,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                 key: qrKey,
                 onQRViewCreated: _onQRViewCreated,
                 overlay: QrScannerOverlayShape(
-                  borderColor: Colors.red,
+                  borderColor: Colors.white,
                   borderRadius: 10,
                   borderLength: 30,
                   borderWidth: 10,
@@ -254,10 +279,19 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                     decoration: const InputDecoration(
                       labelText: 'Enter Room ID',
                       border: OutlineInputBorder(),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white, width: 2.0),
+                      ),
+                      labelStyle: TextStyle(color: Colors.grey),
                     ),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 20, letterSpacing: 2),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      letterSpacing: 2,
+                      color: Colors.white,
+                    ),
                     textCapitalization: TextCapitalization.characters,
+                    cursorColor: Colors.white,
                     onSubmitted: (value) {
                       if (value.trim().isNotEmpty) {
                         widget.onQRCodeScanned(value.trim());
@@ -275,7 +309,16 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                         // Navigator.of(context).pop(_mobileCodeController.text.trim());
                       }
                     },
-                    child: const Text('Join Room'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    child: const Text(
+                      'Join Room',
+                      style: TextStyle(fontSize: 16),
+                    ),
                   ),
                 ],
               ),

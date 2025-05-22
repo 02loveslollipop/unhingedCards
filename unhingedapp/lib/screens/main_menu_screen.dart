@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_database/firebase_database.dart'; // Add this import
 import 'dart:math'; // For random player ID
-import 'package:qr_flutter/qr_flutter.dart'; // Import for QR code generation
 
 import 'package:unhingedapp/screens/qr_scanner_screen.dart';
-import 'package:unhingedapp/screens/room_lobby_screen.dart'; // Import RoomLobbyScreen
+import 'package:unhingedapp/screens/host_lobby_screen.dart'; // Import HostLobbyScreen
+import 'package:unhingedapp/screens/player_lobby_screen.dart'; // Import PlayerLobbyScreen
 import 'package:unhingedapp/utils/name_generator.dart'; // Import the name generator
 
 class MainMenuScreen extends StatefulWidget {
@@ -43,9 +43,9 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           },
         },
         'gameState':
-            'lobby', // Changed from 'waiting' to 'lobby' to match RoomLobbyScreen
-        'currentCardCzar': null,
-        'currentQuestionCard': null,
+            'waiting', // Keep as 'waiting' for consistency with lobby screens
+        'currentCardCzarId': null,
+        'currentBlackCard': null,
         'submittedAnswers': {},
         'scores': {},
         'createdAt': ServerValue.timestamp,
@@ -56,58 +56,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
       if (!mounted) return;
 
-      // Show QR Code Dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false, // User must close dialog manually or join
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text('Room Created!'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Room ID: $roomId'),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: QrImageView(
-                    data: roomId,
-                    version: QrVersions.auto,
-                    size: 200.0,
-                    backgroundColor:
-                        Colors.white, // Ensure QR is scannable in dark mode
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Share this Room ID or QR code with others to join.',
-                ),
-              ],
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('Go to Lobby'),
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close the dialog
-                  Navigator.push(
-                    // Changed from pushReplacement
-                    // Use push to keep MainMenuScreen in the stack
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => RoomLobbyScreen(
-                            roomId: roomId,
-                            playerId: playerId,
-                            isHost: true,
-                          ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          );
-        },
+      // Navigate directly to HostLobbyScreen without showing a dialog
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => HostLobbyScreen(roomId: roomId, playerId: playerId),
+        ),
       );
     } catch (e) {
       print('Error creating room: $e');
@@ -159,15 +114,13 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
         if (!mounted) return;
         Navigator.push(
-          // Changed from pushReplacement
-          // Use push to keep MainMenuScreen in the stack
           context,
           MaterialPageRoute(
             builder:
-                (context) => RoomLobbyScreen(
+                (context) => PlayerLobbyScreen(
+                  // Navigate to PlayerLobbyScreen
                   roomId: roomId,
                   playerId: playerId,
-                  isHost: false,
                 ),
           ),
         );

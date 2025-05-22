@@ -41,6 +41,7 @@ dependencies:
   qr_code_scanner_plus: 2.0.10+1 # Reverted to previous version
   permission_handler: ^11.3.1
   qr_flutter: ^4.1.0 # Add this line
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

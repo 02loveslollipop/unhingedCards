@@ -49,6 +49,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '98421763105',
     projectId: 'unhingedcards-d866b',
     authDomain: 'unhingedcards-d866b.firebaseapp.com',
+    databaseURL: 'https://unhingedcards-d866b-default-rtdb.firebaseio.com',
     storageBucket: 'unhingedcards-d866b.firebasestorage.app',
   );
 
@@ -57,6 +58,7 @@ class DefaultFirebaseOptions {
     appId: '1:98421763105:android:f0d2adffb04698b92dc760',
     messagingSenderId: '98421763105',
     projectId: 'unhingedcards-d866b',
+    databaseURL: 'https://unhingedcards-d866b-default-rtdb.firebaseio.com',
     storageBucket: 'unhingedcards-d866b.firebasestorage.app',
   );
 
@@ -65,6 +67,7 @@ class DefaultFirebaseOptions {
     appId: '1:98421763105:ios:597d79442490ba122dc760',
     messagingSenderId: '98421763105',
     projectId: 'unhingedcards-d866b',
+    databaseURL: 'https://unhingedcards-d866b-default-rtdb.firebaseio.com',
     storageBucket: 'unhingedcards-d866b.firebasestorage.app',
     iosBundleId: 'com.example.unhingedapp',
   );
@@ -75,6 +78,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '98421763105',
     projectId: 'unhingedcards-d866b',
     authDomain: 'unhingedcards-d866b.firebaseapp.com',
+    databaseURL: 'https://unhingedcards-d866b-default-rtdb.firebaseio.com',
     storageBucket: 'unhingedcards-d866b.firebasestorage.app',
   );
+
 }
