@@ -5,12 +5,14 @@ class Leaderboard extends StatefulWidget {
   final Map<dynamic, dynamic> players;
   final int display_duration;
   final Function() on_timeout;
+  final bool is_game_over;
 
   const Leaderboard({
     Key? key,
     required this.players,
     this.display_duration = 5,
     required this.on_timeout,
+    this.is_game_over = false,
   }) : super(key: key);
 
   @override
@@ -23,13 +25,16 @@ class _LeaderboardState extends State<Leaderboard>
   late Timer _display_timer;
   int _time_left = 5;
   late AnimationController _animation_controller;
-
   @override
   void initState() {
     super.initState();
 
     _time_left = widget.display_duration;
-    _start_display_timer();
+    
+    // Only start the timer if it's not the game over screen
+    if (!widget.is_game_over) {
+      _start_display_timer();
+    }
 
     // Sort players by score
     _sorted_players =
@@ -69,14 +74,13 @@ class _LeaderboardState extends State<Leaderboard>
     _animation_controller.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Leaderboard',
+          widget.is_game_over ? 'Final Scores' : 'Leaderboard',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
@@ -243,20 +247,24 @@ class _LeaderboardState extends State<Leaderboard>
                       ],
                     ),
                   ),
-                );
-              }),
+                );              }),
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        Text(
-          'Next round in $_time_left seconds...',
-          style: TextStyle(
-            fontSize: 16,
-            fontFamily: 'Montserrat',
-            color: Colors.white.withOpacity(0.7),
+        if (!widget.is_game_over) 
+          Column(
+            children: [
+              const SizedBox(height: 10),
+              Text(
+                'Next round in $_time_left seconds...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontFamily: 'Montserrat',
+                  color: Colors.white.withOpacity(0.7),
+                ),
+              ),
+            ],
           ),
-        ),
       ],
     );
   }

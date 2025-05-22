@@ -54,7 +54,7 @@ class _GameScreenState extends State<GameScreen> {
       player_id: widget.playerId,
     );
 
-  // Listen to game state changes
+    // Listen to game state changes
     _game_state_subscription = _game_service.listen_to_game_state().listen((
       event,
     ) {
@@ -62,10 +62,11 @@ class _GameScreenState extends State<GameScreen> {
         final state = event.snapshot.value as String?;
         if (state != null) {
           // Don't revert waiting_for_submissions to players_selecting_cards
-          if (_game_state == 'waiting_for_submissions' && state == 'players_selecting_cards') {
+          if (_game_state == 'waiting_for_submissions' &&
+              state == 'players_selecting_cards') {
             return;
           }
-          
+
           // Always update the local state for any other state changes
           setState(() {
             _game_state = state;
@@ -73,7 +74,7 @@ class _GameScreenState extends State<GameScreen> {
           _handle_game_state_change(state);
         }
       }
-    });    // Listen to players changes
+    }); // Listen to players changes
     _players_subscription = _game_service.listen_to_players().listen((event) {
       if (event.snapshot.exists) {
         final players = event.snapshot.value as Map?;
@@ -85,9 +86,10 @@ class _GameScreenState extends State<GameScreen> {
               if (entry.key == widget.playerId && entry.value is Map) {
                 _is_card_czar = entry.value['isCardCzar'] == true;
                 _is_host = entry.value['isHost'] == true;
-                
+
                 // Reset local submitted state if the player's hasSubmitted flag is reset
-                if (entry.value['hasSubmitted'] == false && _has_submitted_cards) {
+                if (entry.value['hasSubmitted'] == false &&
+                    _has_submitted_cards) {
                   _has_submitted_cards = false;
                 }
               }
@@ -151,7 +153,7 @@ class _GameScreenState extends State<GameScreen> {
               }
             });
       }
-    });    // Listen to submissions changes
+    }); // Listen to submissions changes
     _submissions_subscription = _game_service.listen_to_submissions().listen((
       event,
     ) {
@@ -164,7 +166,7 @@ class _GameScreenState extends State<GameScreen> {
             print('Current game state: $_game_state');
             print('Submissions data: ${submissions.toString()}');
             print('Number of submissions: ${submissions.length}');
-            
+
             // Count non-czar players
             int nonCzarPlayers = 0;
             for (final entry in _players.entries) {
@@ -174,24 +176,29 @@ class _GameScreenState extends State<GameScreen> {
               }
             }
             print('Number of non-czar players: $nonCzarPlayers');
-            
+
             // If all non-czar players have submitted and we're in players_selecting_cards or waiting_for_submissions
-            if (submissions.length >= nonCzarPlayers && 
-                (_game_state == 'players_selecting_cards' || _game_state == 'waiting_for_submissions') &&
+            if (submissions.length >= nonCzarPlayers &&
+                (_game_state == 'players_selecting_cards' ||
+                    _game_state == 'waiting_for_submissions') &&
                 nonCzarPlayers > 0) {
-              print('⚠️ All players have submitted, but game state is still $_game_state');
+              print(
+                '⚠️ All players have submitted, but game state is still $_game_state',
+              );
               print('Checking if the host should update the game state...');
-              
+
               // Allow the card czar to update the game state if all players have submitted
               _game_service.check_all_players_submitted().then((allSubmitted) {
                 if (allSubmitted) {
-                  print('Czar detected all submissions complete - updating game state to czar_selecting_winner');
+                  print(
+                    'Czar detected all submissions complete - updating game state to czar_selecting_winner',
+                  );
                   _game_service.update_game_state('czar_selecting_winner');
                 }
               });
             }
           }
-          
+
           final formattedSubmissions = <String, List<Map<String, dynamic>>>{};
 
           submissions.forEach((playerId, cards) {
@@ -241,10 +248,12 @@ class _GameScreenState extends State<GameScreen> {
       }
     });
   }
+
   void _handle_game_state_change(String state) {
     // Skip state change handling if we're in a local waiting_for_submissions state
     // and the global state is still players_selecting_cards
-    if (_game_state == 'waiting_for_submissions' && state == 'players_selecting_cards') {
+    if (_game_state == 'waiting_for_submissions' &&
+        state == 'players_selecting_cards') {
       return;
     }
 
@@ -373,9 +382,11 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _select_card_czar() async {
     await _game_service.select_card_czar();
     await _game_service.update_game_state('czar_drawing_black_card');
-  }  Future<void> _check_all_players_submitted() async {
+  }
+
+  Future<void> _check_all_players_submitted() async {
     print('🔄 Host is checking if all players have submitted their cards...');
-    
+
     // Debug log current players and their submission status
     final playerSnapshot = await _game_service.players_ref.get();
     if (playerSnapshot.exists) {
@@ -387,11 +398,13 @@ class _GameScreenState extends State<GameScreen> {
           final playerData = entry.value as Map?;
           final isCardCzar = playerData?['isCardCzar'] == true;
           final hasSubmitted = playerData?['hasSubmitted'] == true;
-          print('Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted');
+          print(
+            'Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted',
+          );
         }
       }
     }
-    
+
     // Debug log current submissions
     final submissionsSnapshot = await _game_service.submissions_ref.get();
     if (submissionsSnapshot.exists) {
@@ -405,19 +418,21 @@ class _GameScreenState extends State<GameScreen> {
     } else {
       print('No submissions found in database');
     }
-    
+
     // First check immediately if all players have submitted
     bool all_submitted = await _game_service.check_all_players_submitted();
     if (all_submitted) {
-      print('✅ All players have already submitted their cards. Moving to czar selection phase immediately.');
+      print(
+        '✅ All players have already submitted their cards. Moving to czar selection phase immediately.',
+      );
       await _game_service.update_game_state('czar_selecting_winner');
       return;
     }
-    
+
     // Set a maximum wait time (10 seconds) to force state transition
     int maxWaitSeconds = 10;
     int elapsedSeconds = 0;
-    
+
     // Start a timer to periodically check if all players have submitted
     Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (!mounted) {
@@ -425,19 +440,19 @@ class _GameScreenState extends State<GameScreen> {
         print('Timer cancelled - widget no longer mounted');
         return;
       }
-      
+
       elapsedSeconds++;
 
       // Check if all non-czar players have submitted
       final all_submitted = await _game_service.check_all_players_submitted();
-      
+
       // Also check if submissions match the number of non-czar players as a fallback
       final submissionsData = await _game_service.submissions_ref.get();
       int submissionCount = 0;
       if (submissionsData.exists && submissionsData.value is Map) {
         submissionCount = (submissionsData.value as Map).length;
       }
-      
+
       // Count non-czar players
       final playersData = await _game_service.players_ref.get();
       int nonCzarCount = 0;
@@ -449,26 +464,34 @@ class _GameScreenState extends State<GameScreen> {
           }
         }
       }
-      
-      bool shouldMoveToNextState = all_submitted || 
-                                   (submissionCount >= nonCzarCount && nonCzarCount > 0) || 
-                                   elapsedSeconds >= maxWaitSeconds;
-      
+
+      bool shouldMoveToNextState =
+          all_submitted ||
+          (submissionCount >= nonCzarCount && nonCzarCount > 0) ||
+          elapsedSeconds >= maxWaitSeconds;
+
       if (shouldMoveToNextState) {
-        String reason = all_submitted ? 'all players submitted' : 
-                        (submissionCount >= nonCzarCount ? 'submission count matches player count' : 
-                        'maximum wait time reached');
-                        
+        String reason =
+            all_submitted
+                ? 'all players submitted'
+                : (submissionCount >= nonCzarCount
+                    ? 'submission count matches player count'
+                    : 'maximum wait time reached');
+
         print('✅ Moving to czar selection phase. Reason: $reason');
         timer.cancel();
-        
+
         // Update the global game state to czar_selecting_winner
         print('Updating game state to czar_selecting_winner');
         await _game_service.update_game_state('czar_selecting_winner');
         print('Game state updated successfully');
       } else {
-        print('⏳ Still waiting for some players to submit their cards... ($elapsedSeconds/$maxWaitSeconds seconds elapsed)');
-        print('Submission count: $submissionCount, Non-Czar players: $nonCzarCount');
+        print(
+          '⏳ Still waiting for some players to submit their cards... ($elapsedSeconds/$maxWaitSeconds seconds elapsed)',
+        );
+        print(
+          'Submission count: $submissionCount, Non-Czar players: $nonCzarCount',
+        );
       }
     });
   }
@@ -507,20 +530,28 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
     });
-  }  Future<void> _submit_cards() async {
+  }
+
+  Future<void> _submit_cards() async {
     if (_game_state != 'players_selecting_cards' || _has_submitted_cards) {
-      print('⚠️ Cannot submit cards - state: $_game_state, already submitted: $_has_submitted_cards');
+      print(
+        '⚠️ Cannot submit cards - state: $_game_state, already submitted: $_has_submitted_cards',
+      );
       return;
     }
 
     final cards_to_submit = _current_black_card?['pick'] as int? ?? 1;
     if (_selected_cards.length != cards_to_submit) {
-      print('⚠️ Not enough cards selected - have: ${_selected_cards.length}, need: $cards_to_submit');
+      print(
+        '⚠️ Not enough cards selected - have: ${_selected_cards.length}, need: $cards_to_submit',
+      );
       return;
     }
 
-    print('🎮 Player ${widget.playerId} submitting ${_selected_cards.length} cards');
-    
+    print(
+      '🎮 Player ${widget.playerId} submitting ${_selected_cards.length} cards',
+    );
+
     setState(() {
       _has_submitted_cards = true;
       // Only update local state to waiting_for_submissions
@@ -538,7 +569,9 @@ class _GameScreenState extends State<GameScreen> {
           final playerData = entry.value as Map?;
           final isCardCzar = playerData?['isCardCzar'] == true;
           final hasSubmitted = playerData?['hasSubmitted'] == true;
-          print('Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted');
+          print(
+            'Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted',
+          );
         }
       }
     }
@@ -547,7 +580,7 @@ class _GameScreenState extends State<GameScreen> {
     print('Calling game service to submit cards');
     await _game_service.submit_white_cards(_selected_cards);
     print('Cards submitted successfully');
-    
+
     // Log current players and their submission status after our submission
     final playersAfter = await _game_service.players_ref.get();
     if (playersAfter.exists) {
@@ -559,30 +592,34 @@ class _GameScreenState extends State<GameScreen> {
           final playerData = entry.value as Map?;
           final isCardCzar = playerData?['isCardCzar'] == true;
           final hasSubmitted = playerData?['hasSubmitted'] == true;
-          print('Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted');
+          print(
+            'Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted',
+          );
         }
       }
     }
-    
+
     // Check submissions in the database after our submission
     final submissionsAfter = await _game_service.submissions_ref.get();
     if (submissionsAfter.exists) {
       final submissions = submissionsAfter.value as Map?;
-      print('Current submissions after our submit: ${submissions?.length ?? 0}');
+      print(
+        'Current submissions after our submit: ${submissions?.length ?? 0}',
+      );
       if (submissions != null) {
         for (final entry in submissions.entries) {
           print('Submission from player: ${entry.key}');
         }
       }
     }
-    
+
     // If the player is also the host, run a check
     if (_is_host) {
       print('This player is the host, checking if all players submitted');
       bool allSubmitted = await _game_service.check_all_players_submitted();
       print('All players submitted according to check: $allSubmitted');
     }
-    
+
     // If this player was the last to submit, the game service will handle the state transition
     // through the check_all_players_submitted method
   }
@@ -772,6 +809,7 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
   }
+
   Widget _build_showing_round_result() {
     final String? winning_player_id =
         _winning_submission['playerId'] as String?;
@@ -797,20 +835,79 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _build_game_over() {
-    return Center(
+    // Check if this player is the winner
+    bool isWinner = false;
+    String winnerName = "";
+
+    for (final entry in _players.entries) {
+      if (entry.value is Map && entry.value['isWinner'] == true) {
+        winnerName = entry.value['name'] ?? "Unknown Player";
+        isWinner = entry.key == widget.playerId;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             'Game Over',
             style: TextStyle(
-              fontSize: 32,
+              fontSize: 36,
               fontWeight: FontWeight.bold,
               fontFamily: 'Montserrat',
               color: Colors.white,
             ),
           ),
+          const SizedBox(height: 20),
+
+          // Show if player won
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color:
+                  isWinner
+                      ? Colors.green.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isWinner ? Colors.green : Colors.white.withOpacity(0.3),
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  isWinner ? 'YOU WON!' : '$winnerName WON!',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Montserrat',
+                    color: isWinner ? Colors.green : Colors.white,
+                  ),
+                ),
+                if (isWinner) const SizedBox(height: 10),
+                if (isWinner)
+                  Icon(Icons.emoji_events, color: Colors.amber, size: 50),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 24),
+
+          // Display leaderboard using our existing component
+          Expanded(
+            child: Leaderboard(
+              players: _players,
+              display_duration: 0, // No auto-continue since it's game over
+              on_timeout: () {}, // Empty callback as it won't be called
+              is_game_over: true, // Flag to display as game over
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Back to lobby button
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
@@ -832,6 +929,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );

@@ -169,7 +169,6 @@ class GameService {
       return false;
     }
   }
-
   Future<bool> check_winning_condition() async {
     try {
       final winning_points_snapshot = await winning_points_ref.get();
@@ -201,11 +200,25 @@ class GameService {
       }
 
       // Check if any player has reached winning points
-      for (final player in players.values) {
+      for (final entry in players.entries) {
+        final player_id = entry.key.toString();
+        final player = entry.value;
         if (player is Map && player.containsKey('score')) {
           final score = player['score'] as int? ?? 0;
           if (score >= winning_points) {
-            print('Player has reached winning score: $score');
+            print('Player $player_id has reached winning score: $score');
+            
+            // Reset any previous winner flags
+            for (final p in players.entries) {
+              await players_ref.child(p.key.toString()).update({'isWinner': false});
+            }
+            
+            // Mark this player as the winner
+            await players_ref.child(player_id).update({'isWinner': true});
+            
+            // Also store the winner ID at the room level for easy access
+            await room_ref.child('winnerId').set(player_id);
+            
             return true;
           }
         }
@@ -634,20 +647,26 @@ class GameService {
 
       // Clear any existing submissions
       await submissions_ref.remove();
+      
+      // Clear any previous winning submissions
+      await room_ref.child('winningSubmission').remove();
+      await room_ref.child('winnerId').remove();
 
       // Ensure the white cards are shuffled to have randomized draws
       await shuffle_white_deck();
 
-      // Reset all players' submission status
+      // Reset all players' submission status and winner status
       final players_snapshot = await players_ref.get();
       if (players_snapshot.exists) {
         final players = players_snapshot.value as Map?;
         if (players != null) {
           for (final player_id in players.keys) {
-            await players_ref.child(player_id.toString()).update({'hasSubmitted': false});
+            await players_ref.child(player_id.toString()).update({
+              'hasSubmitted': false,
+              'isWinner': false,
+            });
           }
-        }
-      }
+        }      }
 
       // Make sure all players have cards before starting the game
       await draw_cards_for_players();
