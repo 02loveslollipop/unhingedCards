@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../screens/game_screen.dart';
-
 
 mixin LobbyStateMixin<T extends StatefulWidget> on State<T> {
   late DatabaseReference roomRef;
@@ -106,14 +106,84 @@ mixin LobbyStateMixin<T extends StatefulWidget> on State<T> {
       bottom: 10,
       right: 10,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 0.6),
-          borderRadius: BorderRadius.circular(4),
+          color: Colors.black.withOpacity(0.85),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[700]!, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Text(
-          'ID: $currentRoomId',
-          style: const TextStyle(color: Colors.white, fontSize: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Room ID',
+                  style: TextStyle(color: Colors.grey, fontSize: 10),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  currentRoomId,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: currentRoomId));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Room ID copied to clipboard!'),
+                      duration: Duration(seconds: 1),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.copy, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text(
+                        'Copy',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

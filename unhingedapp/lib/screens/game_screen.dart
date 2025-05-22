@@ -1,1498 +1,983 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'dart:math' as math;
-import '../components/game_card.dart';
+import '../components/black_card_deck.dart';
+import '../components/black_card_display.dart';
+import '../components/player_hand.dart';
+import '../components/card_submissions.dart';
+import '../components/leaderboard.dart';
+import '../components/loading_animation.dart';
+import '../components/result_animation.dart';
+import '../services/game_service.dart';
 
 class GameScreen extends StatefulWidget {
   final String roomId;
   final String playerId;
 
-  const GameScreen({super.key, required this.roomId, required this.playerId});
+  const GameScreen({Key? key, required this.roomId, required this.playerId})
+    : super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> {
-  late DatabaseReference _roomRef;
-  late StreamSubscription<DatabaseEvent> _gameSubscription;
-  // Game state
-  String _gameState = 'determining_card_czar';
-  Map<dynamic, dynamic> _players = {};
-  String? _selectedCardTopic; // Will be used in the main game UI
-  String? _currentCardCzarId;
-  bool get _isCardCzar =>
-      _currentCardCzarId == widget.playerId; // Will be used in the main game UI
-  // UI controllers
-  final TextEditingController _timeInputController = TextEditingController();
-  final FocusNode _timeInputFocusNode = FocusNode();
-  bool _hasSubmittedTime = false;
-  Map<String, String> _playerTimes = {};
+  late GameService _game_service;
+  late StreamSubscription<DatabaseEvent> _game_state_subscription;
+  late StreamSubscription<DatabaseEvent> _players_subscription;
+  late StreamSubscription<DatabaseEvent> _black_card_subscription;
+  late StreamSubscription<DatabaseEvent> _player_hand_subscription;
+  late StreamSubscription<DatabaseEvent> _submissions_subscription;
+  late StreamSubscription<DatabaseEvent> _room_subscription;
 
-  // Timer variables
-  Timer? _playerAnswerTimer;
-  Timer? _hostSelectionTimer;
-  int _playerTimeLeft = 20; // 20 seconds for players to answer
-  int _hostTimeLeft = 20; // 20 seconds for host to select Card Czar
-  bool _playerTimerStarted = false;
-  bool _hostTimerStarted = false;  // Card game variables
-  List<Map<String, dynamic>> _playerHand = []; // Player's white cards
-  Map<dynamic, dynamic>? _currentBlackCard; // Current black card
-  Map<String, List<Map<String, dynamic>>> _playerSubmissions =
-      {}; // Player submissions
-  int _cardsToSubmit = 1; // Number of cards to submit (from black card)
-  List<Map<String, dynamic>> _selectedWhiteCards =
-      []; // Cards selected by player to submit
-  bool _hasSubmittedCards = false; // Whether player has submitted cards
-  bool _allPlayersSubmitted = false; // Whether all players have submitted
-  Map<dynamic, dynamic> _winningSubmission =
-      {}; // The winning submission for the round
-  String? _winningPlayerId; // The ID of the player who won the round
-  bool _isDrawingCards = false; // Whether cards are currently being drawn
-  Timer? _cardSubmissionTimer; // Timer for card submission
+  // Game state
+  String _game_state = 'checking_game_conditions';
+  Map<dynamic, dynamic> _players = {};
+  Map<dynamic, dynamic>? _current_black_card;
+  List<Map<String, dynamic>> _player_hand = [];
+  Map<String, List<Map<String, dynamic>>> _player_submissions = {};
+  List<Map<String, dynamic>> _selected_cards = [];
+  Map<dynamic, dynamic> _winning_submission = {};
+  bool _is_card_czar = false;
+  bool _is_host = false;
+  bool _has_submitted_cards = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeGameState();
-
-    // Start the player answer timer when the screen loads
-    _startPlayerAnswerTimer();
+    _initialize_game();
   }
 
-  void _startPlayerAnswerTimer() {
-    if (_playerTimerStarted) return;
+  void _initialize_game() {
+    _game_service = GameService(
+      room_id: widget.roomId,
+      player_id: widget.playerId,
+    );
 
-    setState(() {
-      _playerTimerStarted = true;
-      _playerTimeLeft = 15;
-    });
-
-    _playerAnswerTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_playerTimeLeft > 0) {
-        setState(() {
-          _playerTimeLeft--;
-        });
-      } else {
-        _playerAnswerTimer?.cancel();
-
-        // If player didn't submit yet, submit "Didn't answer"
-        if (!_hasSubmittedTime && mounted) {
-          setState(() {
-            _hasSubmittedTime = true;
-          });
-
-          // Store "Didn't answer" in Firebase
-          _roomRef
-              .child('czarDeterminationTimes')
-              .child(widget.playerId)
-              .set("Didn't answer");
-
-          // Start host selection timer if this is the host
-          if (_isHost) {
-            _startHostSelectionTimer();
+  // Listen to game state changes
+    _game_state_subscription = _game_service.listen_to_game_state().listen((
+      event,
+    ) {
+      if (event.snapshot.exists) {
+        final state = event.snapshot.value as String?;
+        if (state != null) {
+          // Don't revert waiting_for_submissions to players_selecting_cards
+          if (_game_state == 'waiting_for_submissions' && state == 'players_selecting_cards') {
+            return;
           }
+          
+          // Always update the local state for any other state changes
+          setState(() {
+            _game_state = state;
+          });
+          _handle_game_state_change(state);
+        }
+      }
+    });    // Listen to players changes
+    _players_subscription = _game_service.listen_to_players().listen((event) {
+      if (event.snapshot.exists) {
+        final players = event.snapshot.value as Map?;
+        if (players != null) {
+          setState(() {
+            _players = players;
+            // Update Card Czar status
+            for (final entry in players.entries) {
+              if (entry.key == widget.playerId && entry.value is Map) {
+                _is_card_czar = entry.value['isCardCzar'] == true;
+                _is_host = entry.value['isHost'] == true;
+                
+                // Reset local submitted state if the player's hasSubmitted flag is reset
+                if (entry.value['hasSubmitted'] == false && _has_submitted_cards) {
+                  _has_submitted_cards = false;
+                }
+              }
+            }
+          });
         }
       }
     });
-  }
 
-  void _startHostSelectionTimer() {
-    if (_hostTimerStarted || !_isHost) return;
-
-    setState(() {
-      _hostTimerStarted = true;
-      _hostTimeLeft = 10;
-    });
-
-    _hostSelectionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_hostTimeLeft > 0) {
-        setState(() {
-          _hostTimeLeft--;
-        });
-      } else {
-        _hostSelectionTimer?.cancel();
-
-        // If time is up, select a random player as Card Czar
-        _selectRandomCardCzar();
-      }
-    });
-  }
-
-  void _selectRandomCardCzar() {
-    // Get list of players who submitted times
-    final submittedPlayerIds = _playerTimes.keys.toList();
-
-    if (submittedPlayerIds.isNotEmpty) {
-      // Select a random player from those who submitted times
-      final randomIndex =
-          DateTime.now().millisecondsSinceEpoch % submittedPlayerIds.length;
-      final selectedCzarId = submittedPlayerIds[randomIndex];
-
-      // Update Firebase
-      _setCardCzarAndStartGame(selectedCzarId);
-    }
-  }
-
-  void _initializeGameState() {
-    _roomRef = FirebaseDatabase.instance
-        .ref()
-        .child('rooms')
-        .child(widget.roomId);
-
-    // Listen for game updates
-    _gameSubscription = _roomRef.onValue.listen(
-      (event) {
-        if (!mounted) return;
-
-        if (event.snapshot.exists) {
-          final roomData = event.snapshot.value as Map<dynamic, dynamic>?;
-          if (roomData != null) {
+    // Listen to black card changes
+    _black_card_subscription = _game_service
+        .listen_to_current_black_card()
+        .listen((event) {
+          if (event.snapshot.exists) {
+            final black_card = event.snapshot.value as Map?;
+            if (black_card != null) {
+              setState(() {
+                _current_black_card = black_card;
+              });
+            }
+          } else {
             setState(() {
-              _gameState =
-                  roomData['gameState'] as String? ?? 'determining_card_czar';
-              _players = roomData['players'] as Map<dynamic, dynamic>? ?? {};
-              _selectedCardTopic = roomData['selectedCardTopic'] as String?;
-              _currentCardCzarId = roomData['currentCardCzarId'] as String?;
-
-              // Get player submission times if they exist
-              if (roomData.containsKey('czarDeterminationTimes')) {
-                _playerTimes = Map<String, String>.from(
-                  (roomData['czarDeterminationTimes']
-                              as Map<dynamic, dynamic>? ??
-                          {})
-                      .map((k, v) => MapEntry(k.toString(), v.toString())),
-                );
-              }              // Handle current black card if it exists
-              if (roomData.containsKey('currentBlackCard')) {
-                final blackCardData = roomData['currentBlackCard'];
-                if (blackCardData != null) {
-                  // Store blackCardData directly without conversion
-                  // This avoids type conversion issues
-                  _currentBlackCard = blackCardData as Map<dynamic, dynamic>;
-                  
-                  // Get number of cards to submit from black card
-                  final pickValue = _currentBlackCard!['pick'];
-                  if (pickValue is int) {
-                    _cardsToSubmit = pickValue;
-                  } else if (pickValue is String) {
-                    _cardsToSubmit = int.tryParse(pickValue) ?? 1;
-                  } else {
-                    _cardsToSubmit = 1;
-                  }
-                }
-              }
-
-              // Handle player hand if it exists
-              if (roomData.containsKey('playerHands') &&
-                  roomData['playerHands'] is Map &&
-                  (roomData['playerHands'] as Map).containsKey(
-                    widget.playerId,
-                  )) {
-                final handData =
-                    (roomData['playerHands'] as Map)[widget.playerId]
-                        as List<dynamic>?;
-                if (handData != null) {
-                  _playerHand =
-                      handData
-                          .map(
-                            (card) => Map<String, dynamic>.from(
-                              (card as Map).map(
-                                (k, v) => MapEntry(k.toString(), v),
-                              ),
-                            ),
-                          )
-                          .toList();
-                }
-              }
-
-              // Handle player submissions if they exist
-              if (roomData.containsKey('submissions')) {
-                final submissionsData =
-                    roomData['submissions'] as Map<dynamic, dynamic>?;
-                if (submissionsData != null) {
-                  _playerSubmissions = {};
-                  submissionsData.forEach((playerId, submissions) {
-                    if (submissions is List) {
-                      _playerSubmissions[playerId.toString()] =
-                          submissions
-                              .map(
-                                (card) => Map<String, dynamic>.from(
-                                  (card as Map).map(
-                                    (k, v) => MapEntry(k.toString(), v),
-                                  ),
-                                ),
-                              )
-                              .toList();
-                    }
+              _current_black_card = null;
+            });
+          }
+        }); // Listen to player's hand changes
+    _player_hand_subscription = _game_service.listen_to_player_hand().listen((
+      event,
+    ) {
+      if (event.snapshot.exists) {
+        final hand = event.snapshot.value as List?;
+        if (hand != null) {
+          setState(() {
+            _player_hand = List<Map<String, dynamic>>.from(
+              hand.map((card) => Map<String, dynamic>.from(card as Map)),
+            );
+          });
+        }
+      } else {
+        // If the player doesn't have cards in the dedicated player hands location,
+        // check if they have cards in their player object
+        _game_service.players_ref
+            .child(widget.playerId)
+            .child('cards')
+            .get()
+            .then((snapshot) {
+              if (snapshot.exists) {
+                final hand = snapshot.value as List?;
+                if (hand != null) {
+                  setState(() {
+                    _player_hand = List<Map<String, dynamic>>.from(
+                      hand.map(
+                        (card) => Map<String, dynamic>.from(card as Map),
+                      ),
+                    );
                   });
 
-                  // Check if player has submitted
-                  _hasSubmittedCards = _playerSubmissions.containsKey(
-                    widget.playerId,
-                  );
-
-                  // Check if all non-Czar players have submitted
-                  _allPlayersSubmitted = true;
-                  _players.keys.forEach((playerId) {
-                    if (playerId.toString() != _currentCardCzarId &&
-                        !_playerSubmissions.containsKey(playerId.toString())) {
-                      _allPlayersSubmitted = false;
-                    }
-                  });
-                }
-              }              // Handle winning submission if it exists
-              if (roomData.containsKey('winningSubmission')) {
-                final winningData = roomData['winningSubmission'];
-                if (winningData != null) {
-                  // Store the winning submission directly without conversion
-                  _winningSubmission = winningData as Map<dynamic, dynamic>;
-                  
-                  // Extract the winning player ID
-                  try {
-                    _winningPlayerId = _winningSubmission['playerId']?.toString();
-                  } catch (e) {
-                    print('Error extracting winning player ID: $e');
-                    _winningPlayerId = null;
-                  }
+                  // Sync these cards to the player_hands location for consistency
+                  _game_service.player_hand_ref.set(hand);
                 }
               }
             });
-
-            // If the game state just changed to 'playing' and we don't have cards yet, draw cards
-            if (_gameState == 'playing' &&
-                _playerHand.isEmpty &&
-                !_isDrawingCards) {
-              _drawInitialCards();
+      }
+    });    // Listen to submissions changes
+    _submissions_subscription = _game_service.listen_to_submissions().listen((
+      event,
+    ) {
+      if (event.snapshot.exists) {
+        final submissions = event.snapshot.value as Map?;
+        if (submissions != null) {
+          // Log detailed information about submissions for debugging
+          if (_is_card_czar) {
+            print('📝 CARD CZAR RECEIVED SUBMISSIONS EVENT:');
+            print('Current game state: $_game_state');
+            print('Submissions data: ${submissions.toString()}');
+            print('Number of submissions: ${submissions.length}');
+            
+            // Count non-czar players
+            int nonCzarPlayers = 0;
+            for (final entry in _players.entries) {
+              final playerData = entry.value;
+              if (playerData is Map && playerData['isCardCzar'] != true) {
+                nonCzarPlayers++;
+              }
+            }
+            print('Number of non-czar players: $nonCzarPlayers');
+            
+            // If all non-czar players have submitted and we're in players_selecting_cards or waiting_for_submissions
+            if (submissions.length >= nonCzarPlayers && 
+                (_game_state == 'players_selecting_cards' || _game_state == 'waiting_for_submissions') &&
+                nonCzarPlayers > 0) {
+              print('⚠️ All players have submitted, but game state is still $_game_state');
+              print('Checking if the host should update the game state...');
+              
+              // Allow the card czar to update the game state if all players have submitted
+              _game_service.check_all_players_submitted().then((allSubmitted) {
+                if (allSubmitted) {
+                  print('Czar detected all submissions complete - updating game state to czar_selecting_winner');
+                  _game_service.update_game_state('czar_selecting_winner');
+                }
+              });
             }
           }
-        } else {
-          // Room no longer exists, go back to main menu
-          if (mounted) {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('The room has been closed.')),
-            );
+          
+          final formattedSubmissions = <String, List<Map<String, dynamic>>>{};
+
+          submissions.forEach((playerId, cards) {
+            if (cards is List) {
+              formattedSubmissions[playerId
+                  .toString()] = List<Map<String, dynamic>>.from(
+                cards.map((card) => Map<String, dynamic>.from(card as Map)),
+              );
+            }
+          });
+
+          setState(() {
+            _player_submissions = formattedSubmissions;
+          });
+        }
+      } else {
+        setState(() {
+          _player_submissions = {};
+          _has_submitted_cards = false;
+        });
+      }
+    });
+
+    // Listen to room-level changes (winning submission)
+    _room_subscription = _game_service.room_ref
+        .child('winningSubmission')
+        .onValue
+        .listen((event) {
+          if (event.snapshot.exists) {
+            final winning_submission = event.snapshot.value as Map?;
+            if (winning_submission != null) {
+              setState(() {
+                _winning_submission = winning_submission;
+              });
+            }
+          } else {
+            setState(() {
+              _winning_submission = {};
+            });
+          }
+        });
+
+    // Initialize game if host
+    _game_service.is_current_player_host().then((is_host) {
+      if (is_host) {
+        _game_service.initialize_game();
+      }
+    });
+  }
+  void _handle_game_state_change(String state) {
+    // Skip state change handling if we're in a local waiting_for_submissions state
+    // and the global state is still players_selecting_cards
+    if (_game_state == 'waiting_for_submissions' && state == 'players_selecting_cards') {
+      return;
+    }
+
+    switch (state) {
+      case 'checking_game_conditions':
+        if (_is_host) {
+          _check_game_conditions();
+        }
+        break;
+
+      case 'selecting_card_czar':
+        if (_is_host) {
+          _select_card_czar();
+        }
+        break;
+
+      case 'czar_drawing_black_card':
+        // No automatic action, waiting for Card Czar to draw
+        break;
+
+      case 'czar_viewing_black_card':
+        // No automatic action, waiting for timer to complete
+        break;
+
+      case 'revealing_black_card':
+        // No automatic action, waiting for timer to complete
+        break;
+
+      case 'players_selecting_cards':
+        // Reset selected cards when entering this state
+        setState(() {
+          _selected_cards = [];
+        });
+        break;
+
+      case 'waiting_for_submissions':
+        if (_is_host) {
+          _check_all_players_submitted();
+        }
+        break;
+
+      case 'czar_selecting_winner':
+        // No automatic action, waiting for Card Czar to select
+        break;
+
+      case 'showing_round_result':
+        // No automatic action, waiting for timer to complete
+        break;
+
+      case 'showing_leaderboard':
+        // No automatic action, waiting for timer to complete in the Leaderboard component
+        break;
+
+      case 'game_over':
+        // No automatic action, game is over
+        break;
+    }
+  }
+
+  // Host functions to manage game flow
+  Future<void> _check_game_conditions() async {
+    try {
+      // Check if a player has enough points to win
+      final has_winner = await _game_service.check_winning_condition();
+      if (has_winner) {
+        print('Game over: A player has reached the winning points');
+        await _game_service.update_game_state('game_over');
+        return;
+      }
+
+      // Check if black deck has cards
+      final black_deck_has_cards =
+          await _game_service.check_black_cards_available();
+      if (!black_deck_has_cards) {
+        print('Game over: No black cards available');
+        await _game_service.update_game_state('game_over');
+        return;
+      }
+
+      // Check if white deck has enough cards
+      final white_deck_has_enough_cards =
+          await _game_service.check_white_cards_available_for_players();
+      if (!white_deck_has_enough_cards) {
+        print('Game over: Not enough white cards available');
+        await _game_service.update_game_state('game_over');
+        return;
+      }
+
+      // Check if all players have cards
+      final all_players_have_cards =
+          await _game_service.check_all_players_have_cards();
+
+      // If any player doesn't have cards, shuffle the white deck and draw cards
+      if (!all_players_have_cards) {
+        print('Some players need cards, shuffling deck and drawing cards');
+        await _game_service.shuffle_white_deck();
+
+        // Draw cards for all players
+        await _game_service.draw_cards_for_players();
+
+        // Double-check that all players have cards now
+        final rechecked_all_players_have_cards =
+            await _game_service.check_all_players_have_cards();
+
+        if (!rechecked_all_players_have_cards) {
+          // If we still don't have cards for everyone after trying to draw,
+          // there's a more serious issue
+          print(
+            'Game over: Failed to provide cards to all players after draw attempt',
+          );
+          await _game_service.update_game_state('game_over');
+          return;
+        }
+      }
+
+      // All checks passed, proceed to card czar selection
+      print('All game conditions passed, proceeding to card czar selection');
+      await _game_service.update_game_state('selecting_card_czar');
+    } catch (e) {
+      print('Error in checking game conditions: $e');
+      // For safety, if something goes wrong with the checks, end the game
+      await _game_service.update_game_state('game_over');
+    }
+  }
+
+  Future<void> _select_card_czar() async {
+    await _game_service.select_card_czar();
+    await _game_service.update_game_state('czar_drawing_black_card');
+  }  Future<void> _check_all_players_submitted() async {
+    print('🔄 Host is checking if all players have submitted their cards...');
+    
+    // Debug log current players and their submission status
+    final playerSnapshot = await _game_service.players_ref.get();
+    if (playerSnapshot.exists) {
+      final players = playerSnapshot.value as Map?;
+      if (players != null) {
+        print('Players in the room:');
+        for (final entry in players.entries) {
+          final playerId = entry.key;
+          final playerData = entry.value as Map?;
+          final isCardCzar = playerData?['isCardCzar'] == true;
+          final hasSubmitted = playerData?['hasSubmitted'] == true;
+          print('Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted');
+        }
+      }
+    }
+    
+    // Debug log current submissions
+    final submissionsSnapshot = await _game_service.submissions_ref.get();
+    if (submissionsSnapshot.exists) {
+      final submissions = submissionsSnapshot.value as Map?;
+      print('Current submissions: ${submissions?.length ?? 0}');
+      if (submissions != null) {
+        for (final entry in submissions.entries) {
+          print('Submission from player: ${entry.key}');
+        }
+      }
+    } else {
+      print('No submissions found in database');
+    }
+    
+    // First check immediately if all players have submitted
+    bool all_submitted = await _game_service.check_all_players_submitted();
+    if (all_submitted) {
+      print('✅ All players have already submitted their cards. Moving to czar selection phase immediately.');
+      await _game_service.update_game_state('czar_selecting_winner');
+      return;
+    }
+    
+    // Set a maximum wait time (10 seconds) to force state transition
+    int maxWaitSeconds = 10;
+    int elapsedSeconds = 0;
+    
+    // Start a timer to periodically check if all players have submitted
+    Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        print('Timer cancelled - widget no longer mounted');
+        return;
+      }
+      
+      elapsedSeconds++;
+
+      // Check if all non-czar players have submitted
+      final all_submitted = await _game_service.check_all_players_submitted();
+      
+      // Also check if submissions match the number of non-czar players as a fallback
+      final submissionsData = await _game_service.submissions_ref.get();
+      int submissionCount = 0;
+      if (submissionsData.exists && submissionsData.value is Map) {
+        submissionCount = (submissionsData.value as Map).length;
+      }
+      
+      // Count non-czar players
+      final playersData = await _game_service.players_ref.get();
+      int nonCzarCount = 0;
+      if (playersData.exists && playersData.value is Map) {
+        final players = playersData.value as Map;
+        for (final entry in players.entries) {
+          if (entry.value is Map && entry.value['isCardCzar'] != true) {
+            nonCzarCount++;
           }
         }
-      },
-      onError: (error) {
-        print("Error in game subscription: $error");
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $error')));
+      }
+      
+      bool shouldMoveToNextState = all_submitted || 
+                                   (submissionCount >= nonCzarCount && nonCzarCount > 0) || 
+                                   elapsedSeconds >= maxWaitSeconds;
+      
+      if (shouldMoveToNextState) {
+        String reason = all_submitted ? 'all players submitted' : 
+                        (submissionCount >= nonCzarCount ? 'submission count matches player count' : 
+                        'maximum wait time reached');
+                        
+        print('✅ Moving to czar selection phase. Reason: $reason');
+        timer.cancel();
+        
+        // Update the global game state to czar_selecting_winner
+        print('Updating game state to czar_selecting_winner');
+        await _game_service.update_game_state('czar_selecting_winner');
+        print('Game state updated successfully');
+      } else {
+        print('⏳ Still waiting for some players to submit their cards... ($elapsedSeconds/$maxWaitSeconds seconds elapsed)');
+        print('Submission count: $submissionCount, Non-Czar players: $nonCzarCount');
+      }
+    });
+  }
+
+  // Czar actions
+  Future<void> _draw_black_card() async {
+    await _game_service.draw_black_card();
+    await _game_service.update_game_state('czar_viewing_black_card');
+  }
+
+  void _complete_czar_viewing() async {
+    await _game_service.update_game_state('revealing_black_card');
+  }
+
+  void _complete_black_card_reveal() async {
+    await _game_service.update_game_state('players_selecting_cards');
+  }
+
+  // Player actions
+  void _select_white_card(Map<String, dynamic> card) {
+    if (_game_state != 'players_selecting_cards' || _has_submitted_cards) {
+      return;
+    }
+
+    setState(() {
+      if (_selected_cards.contains(card)) {
+        _selected_cards.remove(card);
+      } else {
+        final cards_to_submit = _current_black_card?['pick'] as int? ?? 1;
+
+        if (_selected_cards.length < cards_to_submit) {
+          _selected_cards.add(card);
+        } else if (cards_to_submit == 1) {
+          // If only one card required, replace the selected card
+          _selected_cards = [card];
         }
-      },
+      }
+    });
+  }  Future<void> _submit_cards() async {
+    if (_game_state != 'players_selecting_cards' || _has_submitted_cards) {
+      print('⚠️ Cannot submit cards - state: $_game_state, already submitted: $_has_submitted_cards');
+      return;
+    }
+
+    final cards_to_submit = _current_black_card?['pick'] as int? ?? 1;
+    if (_selected_cards.length != cards_to_submit) {
+      print('⚠️ Not enough cards selected - have: ${_selected_cards.length}, need: $cards_to_submit');
+      return;
+    }
+
+    print('🎮 Player ${widget.playerId} submitting ${_selected_cards.length} cards');
+    
+    setState(() {
+      _has_submitted_cards = true;
+      // Only update local state to waiting_for_submissions
+      _game_state = 'waiting_for_submissions';
+    });
+
+    // Log current players and their submission status before our submission
+    final playersBefore = await _game_service.players_ref.get();
+    if (playersBefore.exists) {
+      final playersMap = playersBefore.value as Map?;
+      if (playersMap != null) {
+        print('Players before submission:');
+        for (final entry in playersMap.entries) {
+          final playerId = entry.key;
+          final playerData = entry.value as Map?;
+          final isCardCzar = playerData?['isCardCzar'] == true;
+          final hasSubmitted = playerData?['hasSubmitted'] == true;
+          print('Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted');
+        }
+      }
+    }
+
+    // Submit the cards and mark the player as having submitted
+    print('Calling game service to submit cards');
+    await _game_service.submit_white_cards(_selected_cards);
+    print('Cards submitted successfully');
+    
+    // Log current players and their submission status after our submission
+    final playersAfter = await _game_service.players_ref.get();
+    if (playersAfter.exists) {
+      final playersMap = playersAfter.value as Map?;
+      if (playersMap != null) {
+        print('Players after submission:');
+        for (final entry in playersMap.entries) {
+          final playerId = entry.key;
+          final playerData = entry.value as Map?;
+          final isCardCzar = playerData?['isCardCzar'] == true;
+          final hasSubmitted = playerData?['hasSubmitted'] == true;
+          print('Player $playerId: Card Czar: $isCardCzar, Submitted: $hasSubmitted');
+        }
+      }
+    }
+    
+    // Check submissions in the database after our submission
+    final submissionsAfter = await _game_service.submissions_ref.get();
+    if (submissionsAfter.exists) {
+      final submissions = submissionsAfter.value as Map?;
+      print('Current submissions after our submit: ${submissions?.length ?? 0}');
+      if (submissions != null) {
+        for (final entry in submissions.entries) {
+          print('Submission from player: ${entry.key}');
+        }
+      }
+    }
+    
+    // If the player is also the host, run a check
+    if (_is_host) {
+      print('This player is the host, checking if all players submitted');
+      bool allSubmitted = await _game_service.check_all_players_submitted();
+      print('All players submitted according to check: $allSubmitted');
+    }
+    
+    // If this player was the last to submit, the game service will handle the state transition
+    // through the check_all_players_submitted method
+  }
+
+  Future<void> _select_winning_submission(
+    String player_id,
+    List<Map<String, dynamic>> cards,
+  ) async {
+    if (!_is_card_czar || _game_state != 'czar_selecting_winner') {
+      return;
+    }
+
+    await _game_service.select_winner(player_id);
+    await _game_service.update_game_state('showing_round_result');
+  }
+
+  void _on_leaderboard_timeout() async {
+    if (_is_host) {
+      await _game_service.update_game_state('checking_game_conditions');
+    }
+  }
+
+  // UI Builders
+  Widget _build_checking_conditions() {
+    return Center(
+      child: LoadingAnimation(message: 'Checking game conditions...'),
     );
   }
 
-  // Set Card Czar and start the game
-  void _setCardCzarAndStartGame(String cardCzarId) async {
-    try {
-      // Check if we have enough players
-      final requiredPlayers =
-          kDebugMode ? 2 : 3; // Lower threshold in debug mode
-      if (_players.length < requiredPlayers) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Need at least $requiredPlayers players to start the game. Current: ${_players.length}',
-              ),
-              backgroundColor: Colors.red[900],
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-        return; // Don't start the game
-      }
-
-      // Update gameState to 'playing' and set the Card Czar
-      await _roomRef.update({
-        'gameState': 'playing',
-        'currentCardCzarId': cardCzarId,
-      });
-
-      // Cancel any remaining timers
-      _playerAnswerTimer?.cancel();
-      _hostSelectionTimer?.cancel();
-
-      print('Game started with Card Czar: $cardCzarId');
-    } catch (e) {
-      print('Error setting Card Czar: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error starting game: $e')));
-      }
-    }
+  Widget _build_selecting_card_czar() {
+    return Center(child: LoadingAnimation(message: 'Selecting Card Czar...'));
   }
 
-  // Draw initial cards for the player
-  Future<void> _drawInitialCards() async {
-    // Prevent multiple card draws
-    if (_isDrawingCards) return;
-
-    setState(() {
-      _isDrawingCards = true;
-    });
-
-    try {
-      // Check if we already have cards in Firebase
-      final handRef = _roomRef.child('playerHands').child(widget.playerId);
-      final snapshot = await handRef.get();
-
-      if (snapshot.exists) {
-        // We already have cards, no need to draw
-        print('Player already has cards');
-        setState(() {
-          _isDrawingCards = false;
-        });
-        return;
-      }
-
-      // Get white cards for the selected topic
-      if (_selectedCardTopic == null) {
-        print('No card topic selected');
-        setState(() {
-          _isDrawingCards = false;
-        });
-        return;
-      }
-
-      // Fetch white cards from Firestore
-      final cardsSnapshot =
-          await FirebaseFirestore.instance
-              .collection('cardTopics')
-              .doc(_selectedCardTopic)
-              .get();
-
-      if (!cardsSnapshot.exists) {
-        print('Card topic does not exist');
-        setState(() {
-          _isDrawingCards = false;
-        });
-        return;
-      }
-
-      final cardsData = cardsSnapshot.data();
-      if (cardsData == null || !cardsData.containsKey('cards')) {
-        print('No cards found for topic');
-        setState(() {
-          _isDrawingCards = false;
-        });
-        return;
-      }
-
-      final cards = List<Map<String, dynamic>>.from(cardsData['cards'] as List);
-
-      // Filter out white cards
-      final whiteCards =
-          cards.where((card) => card['type'] == 'white').toList();
-
-      if (whiteCards.isEmpty) {
-        print('No white cards found');
-        setState(() {
-          _isDrawingCards = false;
-        });
-        return;
-      }
-
-      // Shuffle the cards
-      whiteCards.shuffle();
-
-      // Draw 10 cards
-      final playerHand = whiteCards.take(10).toList();
-
-      // Save to Firebase
-      await handRef.set(playerHand);
-
-      // Update local state
-      setState(() {
-        _playerHand = playerHand;
-        _isDrawingCards = false;
-      });
-
-      print('Drew ${playerHand.length} cards for player');
-
-      // If this is the Card Czar, also draw a black card
-      if (_isCardCzar && _currentBlackCard == null) {
-        _drawBlackCard();
-      }
-    } catch (e) {
-      print('Error drawing cards: $e');
-      setState(() {
-        _isDrawingCards = false;
-      });
-    }
-  }
-
-  // Draw a black card
-  Future<void> _drawBlackCard() async {
-    if (!_isCardCzar) return; // Only the Card Czar can draw black cards
-
-    try {
-      // Get black cards for the selected topic
-      if (_selectedCardTopic == null) return;
-
-      // Fetch black cards from Firestore
-      final cardsSnapshot =
-          await FirebaseFirestore.instance
-              .collection('cardTopics')
-              .doc(_selectedCardTopic)
-              .get();
-
-      if (!cardsSnapshot.exists) return;
-
-      final cardsData = cardsSnapshot.data();
-      if (cardsData == null || !cardsData.containsKey('cards')) return;
-
-      final cards = List<Map<String, dynamic>>.from(cardsData['cards'] as List);
-
-      // Filter out black cards
-      final blackCards =
-          cards.where((card) => card['type'] == 'black').toList();
-
-      if (blackCards.isEmpty) return;
-
-      // Shuffle the cards
-      blackCards.shuffle();
-
-      // Draw 1 card
-      final blackCard = blackCards.first;
-
-      // Save to Firebase
-      await _roomRef.child('currentBlackCard').set(blackCard);
-
-      // Update local state (will happen via Firebase listener)
-
-      print('Drew black card: ${blackCard['text']}');
-
-      // Start submission timer
-      _startCardSubmissionTimer();
-    } catch (e) {
-      print('Error drawing black card: $e');
-    }
-  }
-
-  // Start timer for card submission
-  void _startCardSubmissionTimer() {
-    if (_isCardCzar) return; // Card Czar doesn't submit
-
-    // Cancel existing timer if any
-    _cardSubmissionTimer?.cancel();
-
-    // Set 60-second timer for submissions
-    _cardSubmissionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Timer logic will be implemented soon
-    });
-  }
-
-  // Select a white card from hand
-  void _selectWhiteCard(Map<String, dynamic> card) {
-    if (_isCardCzar || _hasSubmittedCards)
-      return; // Card Czar doesn't play or already submitted
-
-    setState(() {
-      // Toggle card selection
-      final index = _selectedWhiteCards.indexWhere(
-        (c) => c['text'] == card['text'],
-      );
-
-      if (index >= 0) {
-        // Card already selected, deselect it
-        _selectedWhiteCards.removeAt(index);
-      } else {
-        // Card not selected, select it if we haven't reached limit
-        if (_selectedWhiteCards.length < _cardsToSubmit) {
-          _selectedWhiteCards.add(card);
-        }
-      }
-    });
-  }
-
-  // Submit selected white cards
-  Future<void> _submitWhiteCards() async {
-    if (_isCardCzar || _hasSubmittedCards)
-      return; // Card Czar doesn't play or already submitted
-    if (_selectedWhiteCards.length != _cardsToSubmit)
-      return; // Must select exact number of cards
-
-    try {
-      // Save submission to Firebase
-      await _roomRef
-          .child('submissions')
-          .child(widget.playerId)
-          .set(_selectedWhiteCards);
-
-      // Remove submitted cards from hand
-      final newHand = [..._playerHand];
-      for (final card in _selectedWhiteCards) {
-        newHand.removeWhere((c) => c['text'] == card['text']);
-      }
-
-      // Update hand in Firebase
-      await _roomRef.child('playerHands').child(widget.playerId).set(newHand);
-
-      // Update local state (will happen via Firebase listener)
-      setState(() {
-        _hasSubmittedCards = true;
-      });
-
-      print('Submitted ${_selectedWhiteCards.length} cards');
-    } catch (e) {
-      print('Error submitting cards: $e');
-    }
-  }
-
-  // Card Czar selects winning submission
-  Future<void> _selectWinningSubmission(
-    String playerId,
-    List<Map<String, dynamic>> submission,
-  ) async {
-    if (!_isCardCzar) return; // Only Card Czar can select winner
-
-    try {
-      // Save winning submission to Firebase
-      await _roomRef.child('winningSubmission').set({
-        'playerId': playerId,
-        'cards': submission,
-      });
-
-      // Increment player's score
-      await _roomRef
-          .child('players')
-          .child(playerId)
-          .child('score')
-          .set(ServerValue.increment(1));
-
-      print('Selected winning submission by $playerId');
-
-      // Start new round after a delay
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) {
-          _startNewRound();
-        }
-      });
-    } catch (e) {
-      print('Error selecting winner: $e');
-    }
-  }
-
-  // Start a new round
-  Future<void> _startNewRound() async {
-    if (!_isCardCzar) return; // Only Card Czar starts new round
-
-    try {
-      // Rotate Card Czar role to next player
-      final playerIds = _players.keys.toList();
-      final currentIndex = playerIds.indexOf(_currentCardCzarId!);
-      final nextIndex = (currentIndex + 1) % playerIds.length;
-      final nextCardCzarId = playerIds[nextIndex];
-
-      // Clean up previous round
-      await _roomRef.update({
-        'currentCardCzarId': nextCardCzarId,
-        'currentBlackCard': null,
-        'submissions': null,
-        'winningSubmission': null,
-      });
-
-      print('Started new round with Card Czar: $nextCardCzarId');
-    } catch (e) {
-      print('Error starting new round: $e');
-    }
-  }
-
-  // UI for entering "who did X most recently" time
-  Widget _buildCardCzarDeterminationUI() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+  Widget _build_czar_drawing_black_card() {
+    if (_is_card_czar) {
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              'Determine the first Card Czar',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Enter when you last pooped (e.g., "20 minutes ago", "this morning")',
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-
-            // Player's time input with timer
-            if (!_hasSubmittedTime) ...[
-              // Timer display
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                  horizontal: 16,
-                ),
-                decoration: BoxDecoration(
-                  color:
-                      _playerTimeLeft <= 5 ? Colors.red[900] : Colors.grey[800],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Time remaining: $_playerTimeLeft seconds',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color:
-                        _playerTimeLeft <= 5 ? Colors.white : Colors.grey[300],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _timeInputController,
-                focusNode: _timeInputFocusNode,
-                decoration: InputDecoration(
-                  labelText: 'Your answer',
-                  hintText: 'e.g., "2 hours ago"',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.white, width: 2),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.send),
-                    onPressed: _submitTime,
-                  ),
-                ),
-                style: const TextStyle(color: Colors.white),
-                onSubmitted: (_) => _submitTime(),
-              ),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[800],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      'Your submission:',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _playerTimes[widget.playerId] ?? 'No answer submitted',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 30),
-
-            // Display all player times that have been submitted
-            const Text(
-              'Submitted Answers:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-
-            if (_playerTimes.isEmpty)
-              const Text('Waiting for players to submit...'),
-            ..._playerTimes.entries.map((entry) {
-              final playerId = entry.key;
-              final playerName = _getPlayerName(playerId);
-              final isCurrentPlayer = playerId == widget.playerId;
-
-              // Determine if this player is the currently selected Card Czar (if any)
-              final isSelectedCardCzar = _currentCardCzarId == playerId;
-
-              return GestureDetector(
-                onTap: _isHost ? () => _selectPlayerAsCardCzar(playerId) : null,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 4),
-                  decoration: BoxDecoration(
-                    color:
-                        isSelectedCardCzar ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color:
-                          isSelectedCardCzar ? Colors.white : Colors.grey[700]!,
-                      width: isSelectedCardCzar ? 2 : 1,
-                    ),
-                  ),
-                  child: ListTile(
-                    title: Text(
-                      playerName,
-                      style: TextStyle(
-                        color: isSelectedCardCzar ? Colors.black : Colors.white,
-                        fontWeight:
-                            isSelectedCardCzar
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                      ),
-                    ),
-                    subtitle: Text(
-                      entry.value,
-                      style: TextStyle(
-                        color:
-                            isSelectedCardCzar ? Colors.black54 : Colors.grey,
-                      ),
-                    ),
-                    leading: Icon(
-                      isCurrentPlayer ? Icons.person : Icons.person_outline,
-                      color: isSelectedCardCzar ? Colors.black : Colors.white,
-                    ),
-                    trailing:
-                        _isHost
-                            ? Icon(
-                              Icons.check_circle,
-                              color:
-                                  isSelectedCardCzar
-                                      ? Colors.black
-                                      : Colors.transparent,
-                            )
-                            : null,
-                  ),
-                ),
-              );
-            }).toList(),
-
-            const SizedBox(
-              height: 30,
-            ), // Only the host should see this button to choose the Card Czar
-            if (_isHost) ...[
-              // Host selection timer if host has submitted their time
-              if (_hasSubmittedTime && _hostTimerStarted) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 16,
-                  ),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color:
-                        _hostTimeLeft <= 3 ? Colors.red[900] : Colors.grey[800],
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Select a Card Czar: $_hostTimeLeft seconds',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color:
-                          _hostTimeLeft <= 3 ? Colors.white : Colors.grey[300],
-                    ),
-                  ),
-                ),
-              ],
-              ElevatedButton(
-                onPressed: _playerTimes.length >= 2 ? _selectCardCzar : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                  side: const BorderSide(color: Colors.white),
-                ),
-                child: const Text('Select Card Czar'),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Tap a player from the list to make them the Card Czar',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
-              if (_hostTimerStarted) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'If you don\'t select, a random player will be chosen in $_hostTimeLeft seconds',
-                  style: TextStyle(
-                    color: _hostTimeLeft <= 3 ? Colors.red[300] : Colors.grey,
-                    fontSize: 12,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ] else ...[
-              const Text(
-                'Waiting for the host to select the Card Czar...',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Get player name from player ID
-  String _getPlayerName(String playerId) {
-    final playerData = _players[playerId];
-    if (playerData is Map) {
-      return playerData['name'] as String? ?? 'Unknown player';
-    }
-    return 'Unknown player';
-  }
-
-  // Check if current player is the host
-  bool get _isHost {
-    // The host is the first player in the player list
-    if (_players.isNotEmpty) {
-      final hostId = _players.keys.first;
-      return hostId == widget.playerId;
-    }
-    return false;
-  }
-
-  // Submit player's time for Card Czar determination
-  void _submitTime() {
-    final time = _timeInputController.text.trim();
-    if (time.isNotEmpty) {
-      setState(() {
-        _hasSubmittedTime = true;
-      });
-
-      // Store the time in Firebase
-      _roomRef.child('czarDeterminationTimes').child(widget.playerId).set(time);
-
-      // If this is the host, start the host selection timer after submitting
-      if (_isHost) {
-        _startHostSelectionTimer();
-      }
-    }
-  }
-
-  // Host selects a player as Card Czar
-  void _selectCardCzar() {
-    // Show dialog with player list to select Card Czar
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Colors.grey[900],
-            title: const Text(
-              'Select Card Czar',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView(
-                shrinkWrap: true,
-                children:
-                    _playerTimes.entries.map((entry) {
-                      final playerId = entry.key;
-                      final playerName = _getPlayerName(playerId);
-                      final playerAnswer = entry.value;
-                      return ListTile(
-                        title: Text(
-                          playerName,
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        subtitle: Text(
-                          playerAnswer,
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        onTap: () {
-                          // Close dialog
-                          Navigator.pop(context);
-
-                          // Set selected player as Card Czar and start game
-                          _selectPlayerAsCardCzar(playerId);
-                        },
-                      );
-                    }).toList(),
+            Text(
+              'You are the Card Czar!',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
+                color: Colors.white,
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                child: const Text('Cancel'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  // Select a specific player as Card Czar
-  void _selectPlayerAsCardCzar(String playerId) {
-    if (!_isHost) return; // Only host can select
-
-    // Update UI to show selection
-    setState(() {
-      _currentCardCzarId = playerId;
-    });
-
-    // Confirm selection with a brief message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_getPlayerName(playerId)} selected as Card Czar'),
-        duration: const Duration(seconds: 1),
-        backgroundColor: Colors.grey[800],
-      ),
-    );
-
-    // Start the game with selected Card Czar
-    _setCardCzarAndStartGame(playerId);
-  }
-
-  // UI for the main game
-  Widget _buildGameUI() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Game status header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[800]!),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Card Topic: ${_selectedCardTopic ?? "Not selected"}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.person,
-                        color: _isCardCzar ? Colors.white : Colors.grey[600],
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _isCardCzar
-                            ? 'You are the Card Czar!'
-                            : 'Card Czar: ${_getPlayerName(_currentCardCzarId ?? '')}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: _isCardCzar ? Colors.white : Colors.grey[400],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
             const SizedBox(height: 24),
-
-            // Current black card (if available)
-            if (_currentBlackCard != null) ...[
-              const Text(
-                'Black Card:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+            Text(
+              'Draw a black card',
+              style: TextStyle(
+                fontSize: 18,
+                fontFamily: 'Montserrat',
+                color: Colors.white,
               ),
-              const SizedBox(height: 8),
-              Center(
-                child: GameCard(
-                  cardData: _currentBlackCard!,
-                  isBlack: true,
-                  animate: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _cardsToSubmit > 1
-                    ? 'Submit $_cardsToSubmit white cards'
-                    : 'Submit 1 white card',
-                style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-                textAlign: TextAlign.center,
-              ),
-            ] else if (_isCardCzar) ...[
-              // Card Czar can draw a black card if not already drawn
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: _drawBlackCard,
-                  icon: const Icon(Icons.style),
-                  label: const Text('Draw a Black Card'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ] else ...[
-              const Center(
-                child: Text(
-                  'Waiting for Card Czar to draw a black card...',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            // Player submissions (for Card Czar)
-            if (_isCardCzar &&
-                _currentBlackCard != null &&
-                _allPlayersSubmitted) ...[
-              const Text(
-                'Player Submissions:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ...(_playerSubmissions.entries.map((entry) {
-                final playerId = entry.key;
-                final cards = entry.value;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          'Submission #${_playerSubmissions.keys.toList().indexOf(playerId) + 1}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children:
-                              cards
-                                  .map(
-                                    (card) => GameCard(
-                                      cardData: card,
-                                      isBlack: false,
-                                      animate: true,
-                                      onTap:
-                                          () => _selectWinningSubmission(
-                                            playerId,
-                                            cards,
-                                          ),
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: ElevatedButton(
-                          onPressed:
-                              () => _selectWinningSubmission(playerId, cards),
-                          child: const Text('Select as Winner'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList()),
-            ] else if (_isCardCzar && _currentBlackCard != null) ...[
-              Center(
-                child: Column(
-                  children: [
-                    const Text(
-                      'Waiting for all players to submit their cards...',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '${_playerSubmissions.length} of ${_players.length - 1} players have submitted',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // Win announcement (if there is a winner)
-            if (_winningPlayerId != null &&
-                _winningSubmission.containsKey('cards')) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '🏆 ${_getPlayerName(_winningPlayerId!)} WINS! 🏆',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,                      children:
-                          (() {
-                            // Safely extract cards from winning submission
-                            List<Map<dynamic, dynamic>> cards = [];
-                            try {
-                              final cardsData = _winningSubmission['cards'];
-                              if (cardsData is List) {
-                                cards = cardsData.cast<Map<dynamic, dynamic>>();
-                              }
-                            } catch (e) {
-                              print('Error extracting winning cards: $e');
-                            }
-                            return cards.map(
-                              (card) => GameCard(
-                                cardData: card,
-                                isBlack: false,
-                                animate: true,
-                              ),
-                            ).toList();
-                          })(),
-                      ),
-                    ),
-                    if (_isCardCzar) ...[
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _startNewRound,
-                        child: const Text('Start New Round'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            // Player's hand (if not Card Czar)
-            if (!_isCardCzar &&
-                _currentBlackCard != null &&
-                !_hasSubmittedCards) ...[
-              const Text(
-                'Your White Cards:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Select cards to play:',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Container(
-                height: 250,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children:
-                      _playerHand.map((card) {
-                        final isSelected = _selectedWhiteCards.any(
-                          (c) => c['text'] == card['text'],
-                        );
-                        return GameCard(
-                          cardData: card,
-                          isBlack: false,
-                          isSelected: isSelected,
-                          animate: true,
-                          onTap: () => _selectWhiteCard(card),
-                        );
-                      }).toList(),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed:
-                    _selectedWhiteCards.length == _cardsToSubmit
-                        ? _submitWhiteCards
-                        : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  side: const BorderSide(color: Colors.white),
-                ),
-                child: Text(
-                  _selectedWhiteCards.length == _cardsToSubmit
-                      ? 'Submit Cards'
-                      : 'Select $_cardsToSubmit Cards First',
-                ),
-              ),
-            ] else if (!_isCardCzar && _hasSubmittedCards) ...[
-              const Text(
-                'Your Submission:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children:
-                      (_playerSubmissions[widget.playerId] ?? [])
-                          .map(
-                            (card) => GameCard(
-                              cardData: card,
-                              isBlack: false,
-                              animate: false,
-                            ),
-                          )
-                          .toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Center(
-                child: Text(
-                  'Waiting for other players to submit...',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ),
-            ] else if (_isDrawingCards) ...[
-              const Center(
-                child: Column(
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
-                    Text('Drawing cards...'),
-                  ],
-                ),
-              ),
-            ],
-
-            // Game scores
-            const SizedBox(height: 32),
-            const Text(
-              'Scores:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            ..._players.entries.map((entry) {
-              final playerId = entry.key;
-              final playerName = _getPlayerName(playerId);
-              final isCurrentPlayer = playerId == widget.playerId;
-              final score =
-                  (entry.value is Map)
-                      ? (entry.value as Map)['score'] as int? ?? 0
-                      : 0;
-              final isWinner = playerId == _winningPlayerId;
-
-              return Container(
-                margin: const EdgeInsets.symmetric(vertical: 4),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: isWinner ? Colors.white : Colors.grey[900],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isCurrentPlayer ? Colors.white : Colors.transparent,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isCurrentPlayer ? Icons.person : Icons.person_outline,
-                      color: isWinner ? Colors.black : Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        playerName,
-                        style: TextStyle(
-                          fontWeight:
-                              isCurrentPlayer
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                          color: isWinner ? Colors.black : Colors.white,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isWinner ? Colors.black : Colors.grey[800],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        score.toString(),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isWinner ? Colors.white : null,
-                        ),
-                      ),
-                    ),
-                    if (playerId == _currentCardCzarId) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'CZAR',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              );
-            }).toList(),
+            const SizedBox(height: 32),
+            BlackCardDeck(
+              on_card_drawn: _draw_black_card,
+              is_interactive: true,
+              timer_duration: 5,
+            ),
           ],
         ),
+      );
+    } else {
+      return Center(
+        child: LoadingAnimation(
+          message: 'Waiting for Card Czar to draw a black card...',
+        ),
+      );
+    }
+  }
+
+  Widget _build_czar_viewing_black_card() {
+    if (_is_card_czar) {
+      return BlackCardDisplay(
+        card_data: _current_black_card,
+        has_reveal_animation: true,
+        reveal_duration: 2,
+        on_reveal_complete: _complete_czar_viewing,
+      );
+    } else {
+      return Center(
+        child: LoadingAnimation(
+          message: 'Card Czar is viewing the black card...',
+        ),
+      );
+    }
+  }
+
+  Widget _build_revealing_black_card() {
+    return BlackCardDisplay(
+      card_data: _current_black_card,
+      has_reveal_animation: true,
+      reveal_duration: 2,
+      on_reveal_complete: _complete_black_card_reveal,
+    );
+  }
+
+  Widget _build_players_selecting_cards() {
+    if (_is_card_czar) {
+      return Column(
+        children: [
+          Expanded(
+            flex: 1,
+            child: BlackCardDisplay(
+              card_data: _current_black_card,
+              has_reveal_animation: false,
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: LoadingAnimation(
+                message: 'Waiting for players to select their cards...',
+              ),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Column(
+        children: [
+          Expanded(
+            flex: 2,
+            child: BlackCardDisplay(
+              card_data: _current_black_card,
+              has_reveal_animation: false,
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: PlayerHand(
+              cards: _player_hand,
+              cards_to_submit: _current_black_card?['pick'] as int? ?? 1,
+              selected_cards: _selected_cards,
+              on_card_selected: _select_white_card,
+              on_cards_submitted: _submit_cards,
+              is_submission_enabled: !_has_submitted_cards,
+              submission_time_limit: 20,
+              auto_submit_on_timeout: true,
+            ),
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _build_waiting_for_submissions() {
+    return Center(
+      child: LoadingAnimation(
+        message: 'Waiting for all players to submit their cards...',
+      ),
+    );
+  }
+
+  Widget _build_czar_selecting_winner() {
+    if (_is_card_czar) {
+      return Column(
+        children: [
+          Expanded(
+            flex: 1,
+            child: BlackCardDisplay(
+              card_data: _current_black_card,
+              has_reveal_animation: false,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: CardSubmissions(
+              submissions: _player_submissions,
+              players: _players,
+              on_winner_selected: _select_winning_submission,
+              is_interactive: true,
+              selection_time_limit: 30,
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Center(
+        child: LoadingAnimation(
+          message: 'Waiting for Card Czar to select the winner...',
+        ),
+      );
+    }
+  }
+  Widget _build_showing_round_result() {
+    final String? winning_player_id =
+        _winning_submission['playerId'] as String?;
+    final bool is_winner = winning_player_id == widget.playerId;
+
+    return ResultAnimation(
+      is_winner: is_winner,
+      is_card_czar: _is_card_czar,
+      on_animation_complete: () async {
+        if (_is_host) {
+          await _game_service.update_game_state('showing_leaderboard');
+        }
+      },
+    );
+  }
+
+  Widget _build_showing_leaderboard() {
+    return Leaderboard(
+      players: _players,
+      display_duration: 5,
+      on_timeout: _on_leaderboard_timeout,
+    );
+  }
+
+  Widget _build_game_over() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Game Over',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Montserrat',
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              minimumSize: Size(200, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Back to Lobby',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Montserrat',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: Text('Unhinged Cards'),
-        backgroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app),
-            onPressed: _leaveGame,
-            tooltip: 'Leave Game',
-          ),
-        ],
+    return WillPopScope(
+      onWillPop: _on_will_pop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Game Room: ${widget.roomId}'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              onPressed: () {
+                _show_game_info();
+              },
+            ),
+          ],
+        ),
+        body: SafeArea(child: _build_game_ui()),
       ),
-      body:
-          _gameState == 'determining_card_czar'
-              ? _buildCardCzarDeterminationUI()
-              : _buildGameUI(),
     );
   }
 
-  void _leaveGame() {
-    showDialog(
+  Widget _build_game_ui() {
+    switch (_game_state) {
+      case 'checking_game_conditions':
+        return _build_checking_conditions();
+
+      case 'selecting_card_czar':
+        return _build_selecting_card_czar();
+
+      case 'czar_drawing_black_card':
+        return _build_czar_drawing_black_card();
+
+      case 'czar_viewing_black_card':
+        return _build_czar_viewing_black_card();
+
+      case 'revealing_black_card':
+        return _build_revealing_black_card();
+
+      case 'players_selecting_cards':
+        return _build_players_selecting_cards();
+
+      case 'waiting_for_submissions':
+        return _build_waiting_for_submissions();
+
+      case 'czar_selecting_winner':
+        return _build_czar_selecting_winner();
+
+      case 'showing_round_result':
+        return _build_showing_round_result();
+
+      case 'showing_leaderboard':
+        return _build_showing_leaderboard();
+
+      case 'game_over':
+        return _build_game_over();
+
+      default:
+        return Center(
+          child: Text(
+            '$_game_state',
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+    }
+  }
+
+  Future<bool> _on_will_pop() async {
+    final bool? should_pop = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder:
           (context) => AlertDialog(
-            backgroundColor: Colors.grey[900],
-            title: const Text(
-              'Leave Game?',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Are you sure you want to leave the game? This action cannot be undone.',
-              style: TextStyle(color: Colors.white70),
+            title: const Text('Exit Game?'),
+            content: Text(
+              _is_host
+                  ? 'If you leave, the room will be deleted and other players will be disconnected.'
+                  : 'Are you sure you want to leave this game?',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context),
-                style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                onPressed: () {
+                  Navigator.of(context).pop(false);
+                },
                 child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () {
-                  Navigator.pop(context);
-                  _performLeaveGame();
+                  Navigator.of(context).pop(true);
                 },
-                style: TextButton.styleFrom(foregroundColor: Colors.white),
-                child: const Text('Leave'),
+                child: const Text('Exit'),
+              ),
+            ],
+          ),
+    );
+
+    return should_pop ?? false;
+  }
+
+  void _show_game_info() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Game Info'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Game State: $_game_state'),
+                const SizedBox(height: 8),
+                Text('Room ID: ${widget.roomId}'),
+                const SizedBox(height: 8),
+                Text('Player ID: ${widget.playerId}'),
+                const SizedBox(height: 8),
+                Text('Role: ${_is_card_czar ? 'Card Czar' : 'Player'}'),
+                const SizedBox(height: 8),
+                Text('Host: ${_is_host ? 'Yes' : 'No'}'),
+                const SizedBox(height: 8),
+                Text('Players: ${_players.length}'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Close'),
               ),
             ],
           ),
     );
   }
 
-  void _performLeaveGame() async {
-    try {
-      // If player is host, delete the room, otherwise just remove the player
-      if (_isHost) {
-        await _roomRef.remove();
-      } else {
-        await _roomRef.child('players').child(widget.playerId).remove();
-      }
-
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    } catch (e) {
-      print('Error leaving game: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error leaving game: $e')));
-      }
-    }
-  }
-
   @override
   void dispose() {
-    _gameSubscription.cancel();
-    _timeInputController.dispose();
-    _timeInputFocusNode.dispose();
-    _playerAnswerTimer?.cancel();
-    _hostSelectionTimer?.cancel();
+    _game_state_subscription.cancel();
+    _players_subscription.cancel();
+    _black_card_subscription.cancel();
+    _player_hand_subscription.cancel();
+    _submissions_subscription.cancel();
+    _room_subscription.cancel();
     super.dispose();
   }
 }

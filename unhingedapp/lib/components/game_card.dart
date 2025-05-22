@@ -232,16 +232,17 @@ class _GameCardState extends State<GameCard> with TickerProviderStateMixin {
       child: showFront ? _buildCardContent() : _buildCardBack(),
     );
   }
+
   Widget _buildCardContent() {
     // Safely extract text and pick count from card data with proper type handling
     String text;
     int pickCount = 1;
-    
+
     try {
       // Handle text extraction with different map types
       final textValue = widget.cardData['text'];
       text = textValue?.toString() ?? 'Empty Card';
-      
+
       // Handle pick count extraction with different map types
       final pickValue = widget.cardData['pick'];
       if (pickValue != null) {

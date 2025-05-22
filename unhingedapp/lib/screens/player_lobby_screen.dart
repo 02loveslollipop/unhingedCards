@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Add for Clipboard
 import 'package:firebase_database/firebase_database.dart'; // Re-add for DatabaseReference type
 import 'dart:async'; // Still needed for StreamSubscription type in mixin if not directly used here
 import '../components/player_list.dart';
@@ -76,8 +77,93 @@ class _PlayerLobbyScreenState extends State<PlayerLobbyScreen>
                     'Players in Room:',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  const SizedBox(height: 10),
-                  // Player list with fixed height instead of Expanded
+                  const SizedBox(height: 5),
+
+                  // Display Room ID with Copy button
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 15),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[850],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[700]!),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Room ID',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              widget.roomId,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 16),
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(text: widget.roomId),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Room ID copied to clipboard!'),
+                                  duration: Duration(seconds: 1),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[800],
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.copy,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Copy',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Player list with fixed height
                   SizedBox(
                     height: 200, // Fixed height for player list
                     child: PlayerList(

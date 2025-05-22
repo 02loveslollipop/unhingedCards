@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'dart:math';
 import '../components/player_list.dart';
 import '../mixins/lobby_state_mixin.dart'; // Import the mixin
@@ -175,8 +176,9 @@ class _HostLobbyScreenState extends State<HostLobbyScreen>
   Future<void> _startGame() async {
     if (_selectedCardTopic != null && players.isNotEmpty) {
       // Check if we have enough players
-      final requiredPlayers = kDebugMode ? 2 : 3; // Lower threshold in debug mode
-      
+      final requiredPlayers =
+          kDebugMode ? 2 : 3; // Lower threshold in debug mode
+
       try {
         // Update game state to indicate Card Czar determination phase
         await roomRef.child('gameState').set('determining_card_czar');
@@ -255,44 +257,151 @@ class _HostLobbyScreenState extends State<HostLobbyScreen>
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 10),
+
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12.0,
-                      vertical: 8.0,
-                    ),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8.0),
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[800]!),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withOpacity(0.3),
                           spreadRadius: 1,
-                          blurRadius: 3,
+                          blurRadius: 5,
                           offset: const Offset(0, 2),
                         ),
                       ],
                     ),
-                    child: Text(
-                      widget.roomId,
-                      style: TextStyle(
-                        fontSize:
-                            Theme.of(context).textTheme.headlineSmall?.fontSize,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12.0,
+                                vertical: 8.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8.0),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 3,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                widget.roomId,
+                                style: TextStyle(
+                                  fontSize:
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.headlineSmall?.fontSize,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                  letterSpacing: 1.0,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: widget.roomId),
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Room ID copied to clipboard!',
+                                      ),
+                                      duration: Duration(seconds: 1),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[800],
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        spreadRadius: 1,
+                                        blurRadius: 2,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.copy,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Copy ID',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 15),
+                        QrImageView(
+                          data: widget.roomId,
+                          version: QrVersions.auto,
+                          size: 150.0,
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: Colors.black,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: Colors.black,
+                          ),
+                        ),
+
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Show QR code to players to scan',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 15),
-                  QrImageView(
-                    data: widget.roomId,
-                    version: QrVersions.auto,
-                    size: 150.0,
-                    backgroundColor:
-                        Colors.white, // Ensure QR is visible in dark mode
-                  ),
-                  const SizedBox(height: 20),                  Text(
+
+                  const SizedBox(height: 20),
+                  Text(
                     'Players:',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
@@ -314,15 +423,19 @@ class _HostLobbyScreenState extends State<HostLobbyScreen>
                       currentPlayerId: widget.playerId,
                     ),
                   ),
-                  
+
                   // Player count indicator
                   Container(
                     margin: const EdgeInsets.only(top: 10, bottom: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: players.length >= (kDebugMode ? 2 : 3) 
-                          ? Colors.green[900] 
-                          : Colors.red[900],
+                      color:
+                          players.length >= (kDebugMode ? 2 : 3)
+                              ? Colors.green[900]
+                              : Colors.red[900],
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -440,7 +553,8 @@ class _HostLobbyScreenState extends State<HostLobbyScreen>
                     else
                       const SizedBox.shrink(),
                   ],
-                  const SizedBox(height: 20),                  ElevatedButton(
+                  const SizedBox(height: 20),
+                  ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       padding: const EdgeInsets.symmetric(
