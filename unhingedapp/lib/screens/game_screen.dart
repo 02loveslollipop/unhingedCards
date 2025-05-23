@@ -694,6 +694,7 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
   }
+
   Widget _build_czar_viewing_black_card() {
     if (_is_card_czar) {
       return BlackCardDisplay(
@@ -708,21 +709,21 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
   }
+
   Widget _build_revealing_black_card() {
     return BlackCardDisplay(
       card_data: _current_black_card,
       on_reveal_complete: _complete_black_card_reveal,
     );
   }
+
   Widget _build_players_selecting_cards() {
     if (_is_card_czar) {
       return Column(
         children: [
           Expanded(
             flex: 1,
-            child: BlackCardDisplay(
-              card_data: _current_black_card,
-            ),
+            child: BlackCardDisplay(card_data: _current_black_card),
           ),
           Expanded(
             flex: 1,
@@ -733,14 +734,13 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ),
         ],
-      );    } else {
+      );
+    } else {
       return Column(
         children: [
           Expanded(
             flex: 2,
-            child: BlackCardDisplay(
-              card_data: _current_black_card,
-            ),
+            child: BlackCardDisplay(card_data: _current_black_card),
           ),
           Expanded(
             flex: 3,
@@ -768,14 +768,13 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _build_czar_selecting_winner() {    if (_is_card_czar) {
+  Widget _build_czar_selecting_winner() {
+    if (_is_card_czar) {
       return Column(
         children: [
           Expanded(
             flex: 1,
-            child: BlackCardDisplay(
-              card_data: _current_black_card,
-            ),
+            child: BlackCardDisplay(card_data: _current_black_card),
           ),
           Expanded(
             flex: 2,
