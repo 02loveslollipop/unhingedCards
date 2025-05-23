@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'game_card.dart';
+import 'game_card_new.dart';
 
 class PlayerHand extends StatefulWidget {
   final List<Map<String, dynamic>> cards;

@@ -57,7 +57,7 @@ class _ResultAnimationState extends State<ResultAnimation>
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -72,16 +72,18 @@ class _ResultAnimationState extends State<ResultAnimation>
                 width: 300,
                 height: 300,
                 decoration: BoxDecoration(
-                  color: widget.is_card_czar 
-                      ? Colors.purple 
-                      : (widget.is_winner ? Colors.green : Colors.red),
+                  color:
+                      widget.is_card_czar
+                          ? Colors.purple
+                          : (widget.is_winner ? Colors.green : Colors.red),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: widget.is_card_czar
-                          ? Colors.purple.withOpacity(0.5)
-                          : (widget.is_winner ? Colors.green : Colors.red)
-                              .withOpacity(0.5),
+                      color:
+                          widget.is_card_czar
+                              ? Colors.purple.withOpacity(0.5)
+                              : (widget.is_winner ? Colors.green : Colors.red)
+                                  .withOpacity(0.5),
                       blurRadius: 30,
                       spreadRadius: 10,
                     ),
@@ -126,7 +128,8 @@ class _ResultAnimationState extends State<ResultAnimation>
                             fontFamily: 'Montserrat',
                           ),
                         ),
-                      if (widget.is_winner && !widget.is_card_czar) const SizedBox(height: 8),
+                      if (widget.is_winner && !widget.is_card_czar)
+                        const SizedBox(height: 8),
                       if (widget.is_winner && !widget.is_card_czar)
                         Text(
                           '+1 point',

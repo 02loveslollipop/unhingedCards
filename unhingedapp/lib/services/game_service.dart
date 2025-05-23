@@ -169,6 +169,7 @@ class GameService {
       return false;
     }
   }
+
   Future<bool> check_winning_condition() async {
     try {
       final winning_points_snapshot = await winning_points_ref.get();
@@ -207,18 +208,20 @@ class GameService {
           final score = player['score'] as int? ?? 0;
           if (score >= winning_points) {
             print('Player $player_id has reached winning score: $score');
-            
+
             // Reset any previous winner flags
             for (final p in players.entries) {
-              await players_ref.child(p.key.toString()).update({'isWinner': false});
+              await players_ref.child(p.key.toString()).update({
+                'isWinner': false,
+              });
             }
-            
+
             // Mark this player as the winner
             await players_ref.child(player_id).update({'isWinner': true});
-            
+
             // Also store the winner ID at the room level for easy access
             await room_ref.child('winnerId').set(player_id);
-            
+
             return true;
           }
         }
@@ -415,14 +418,15 @@ class GameService {
         await black_cards_ref.set(black_cards);
       }
     }
-  }  // Player submissions
+  } // Player submissions
+
   Future<void> submit_white_cards(List<dynamic> card_ids) async {
     print('🎲 Player $player_id submitting cards to the game');
-    
+
     // Submit the selected cards
     await submissions_ref.child(player_id).set(card_ids);
     print('Cards added to submissions database');
-    
+
     // Mark the player as having submitted cards
     await players_ref.child(player_id).update({'hasSubmitted': true});
     print('Player marked as having submitted cards');
@@ -446,7 +450,7 @@ class GameService {
       // Also update the player's cards field directly in the player object for faster access
       await players_ref.child(player_id).child('cards').set(hand);
     }
-    
+
     // Get the card czar ID for comparison
     String? cardCzarId;
     final players_snapshot = await players_ref.get();
@@ -462,28 +466,37 @@ class GameService {
       }
     }
     print('Current Card Czar: $cardCzarId');
-    
+
     // Check if this was the last submission needed
     print('Checking if all players have submitted cards...');
     final all_players_submitted = await check_all_players_submitted();
     if (all_players_submitted) {
-      print('🏆 ALL PLAYERS HAVE SUBMITTED! This was the last submission needed.');
-      
+      print(
+        '🏆 ALL PLAYERS HAVE SUBMITTED! This was the last submission needed.',
+      );
+
       // Get current game state to see if it needs to be updated
       final game_state_snapshot = await game_state_ref.get();
       final current_game_state = game_state_snapshot.value as String?;
-      
+
       // If we're still in players_selecting_cards or waiting_for_submissions, update the state
-      if (current_game_state == 'players_selecting_cards' || current_game_state == 'waiting_for_submissions') {
-        print('Game is still in $current_game_state state - updating to czar_selecting_winner');
+      if (current_game_state == 'players_selecting_cards' ||
+          current_game_state == 'waiting_for_submissions') {
+        print(
+          'Game is still in $current_game_state state - updating to czar_selecting_winner',
+        );
         await update_game_state('czar_selecting_winner');
         print('Game state updated to czar_selecting_winner');
       } else {
-        print('Game is already in $current_game_state state - no update needed');
+        print(
+          'Game is already in $current_game_state state - no update needed',
+        );
       }
     } else {
-      print('Not all players have submitted yet - waiting for more submissions');
-      
+      print(
+        'Not all players have submitted yet - waiting for more submissions',
+      );
+
       // Log current submissions count
       final submissions_snapshot = await submissions_ref.get();
       if (submissions_snapshot.exists) {
@@ -493,21 +506,27 @@ class GameService {
         }
       }
     }
-  }Future<bool> check_all_players_submitted() async {
-    print('🔍 In check_all_players_submitted - checking if all players have submitted cards');
+  }
+
+  Future<bool> check_all_players_submitted() async {
+    print(
+      '🔍 In check_all_players_submitted - checking if all players have submitted cards',
+    );
     final players_snapshot = await players_ref.get();
     final submissions_snapshot = await submissions_ref.get();
 
     if (players_snapshot.exists) {
       final players = players_snapshot.value as Map?;
-      final submissions = submissions_snapshot.exists ? 
-          (submissions_snapshot.value as Map?) : null;
+      final submissions =
+          submissions_snapshot.exists
+              ? (submissions_snapshot.value as Map?)
+              : null;
 
       if (players != null) {
         // Count non-Czar players and check if they've all submitted
         int non_czar_count = 0;
         int submitted_count = 0;
-        
+
         print('Players in the game:');
         for (final entry in players.entries) {
           final player_id = entry.key.toString();
@@ -515,26 +534,31 @@ class GameService {
           if (player_data is Map) {
             final isCardCzar = player_data['isCardCzar'] == true;
             final hasSubmitted = player_data['hasSubmitted'] == true;
-            final hasSubmissionInDb = submissions != null && submissions.containsKey(player_id);
-            
-            print('Player $player_id: Card Czar: $isCardCzar, Has submitted flag: $hasSubmitted, Has submission in DB: $hasSubmissionInDb');
-            
+            final hasSubmissionInDb =
+                submissions != null && submissions.containsKey(player_id);
+
+            print(
+              'Player $player_id: Card Czar: $isCardCzar, Has submitted flag: $hasSubmitted, Has submission in DB: $hasSubmissionInDb',
+            );
+
             // Skip the Card Czar
             if (isCardCzar) {
               print('Player $player_id is Card Czar, skipping from count');
               continue;
             }
-            
+
             non_czar_count++;
-            
+
             // Check both the player's hasSubmitted flag and if they have cards in the submissions
             bool playerHasSubmitted = hasSubmitted;
             bool playerHasSubmissionCards = hasSubmissionInDb;
-                
+
             if (playerHasSubmitted || playerHasSubmissionCards) {
               submitted_count++;
-              print('Player $player_id has submitted their cards (flag: $playerHasSubmitted, DB: $playerHasSubmissionCards)');
-              
+              print(
+                'Player $player_id has submitted their cards (flag: $playerHasSubmitted, DB: $playerHasSubmissionCards)',
+              );
+
               // If a player has submitted cards but doesn't have the flag set, update it
               if (!playerHasSubmitted && playerHasSubmissionCards) {
                 print('Updating hasSubmitted flag for player $player_id');
@@ -547,8 +571,10 @@ class GameService {
         }
 
         // Check if all non-Czar players have submitted
-        print('Submitted count: $submitted_count / $non_czar_count non-czar players');
-        
+        print(
+          'Submitted count: $submitted_count / $non_czar_count non-czar players',
+        );
+
         if (submitted_count >= non_czar_count && non_czar_count > 0) {
           print('✅ ALL PLAYERS HAVE SUBMITTED THEIR CARDS - returning true');
           return true;
@@ -565,6 +591,7 @@ class GameService {
     print('Defaulting to false - not all players have submitted');
     return false;
   }
+
   // Winner selection
   Future<void> select_winner(String winner_id) async {
     // Update the winner's score
@@ -594,7 +621,9 @@ class GameService {
       final players = players_snapshot.value as Map?;
       if (players != null) {
         for (final player_id in players.keys) {
-          await players_ref.child(player_id.toString()).update({'hasSubmitted': false});
+          await players_ref.child(player_id.toString()).update({
+            'hasSubmitted': false,
+          });
         }
       }
     }
@@ -631,7 +660,9 @@ class GameService {
 
   Stream<DatabaseEvent> listen_to_room() {
     return room_ref.onValue;
-  }  Future<void> initialize_game() async {
+  }
+
+  Future<void> initialize_game() async {
     try {
       // Set initial game state (temporary, will update after initialization)
       await update_game_state('initializing');
@@ -647,7 +678,7 @@ class GameService {
 
       // Clear any existing submissions
       await submissions_ref.remove();
-      
+
       // Clear any previous winning submissions
       await room_ref.child('winningSubmission').remove();
       await room_ref.child('winnerId').remove();
@@ -666,7 +697,8 @@ class GameService {
               'isWinner': false,
             });
           }
-        }      }
+        }
+      }
 
       // Make sure all players have cards before starting the game
       await draw_cards_for_players();

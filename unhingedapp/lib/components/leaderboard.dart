@@ -30,7 +30,7 @@ class _LeaderboardState extends State<Leaderboard>
     super.initState();
 
     _time_left = widget.display_duration;
-    
+
     // Only start the timer if it's not the game over screen
     if (!widget.is_game_over) {
       _start_display_timer();
@@ -74,6 +74,7 @@ class _LeaderboardState extends State<Leaderboard>
     _animation_controller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -247,11 +248,12 @@ class _LeaderboardState extends State<Leaderboard>
                       ],
                     ),
                   ),
-                );              }),
+                );
+              }),
             ],
           ),
         ),
-        if (!widget.is_game_over) 
+        if (!widget.is_game_over)
           Column(
             children: [
               const SizedBox(height: 10),
