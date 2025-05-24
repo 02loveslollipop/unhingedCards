@@ -225,12 +225,123 @@
             background-repeat: no-repeat;
             background-position: right 15px center;
             background-size: 12px;
-        }
-
-        /* Hidden sections styling */
+        }        /* Hidden sections styling */
         #carta_negra_section,
         #carta_blanca_section {
             transition: all 0.3s ease;
+        }
+
+        /* Modal popup styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            border: 3px solid black;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            transform: scale(0.7);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.show .modal {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            background: black;
+            color: white;
+            padding: 20px 25px;
+            text-align: center;
+        }
+
+        .modal-header.success {
+            background: #2d5a2d;
+        }
+
+        .modal-header.error {
+            background: #8b2635;
+        }
+
+        .modal-title {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .modal-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .modal-message {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: black;
+            color: white;
+            border: 2px solid black;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: inherit;
+        }
+
+        .modal-close:hover {
+            background: white;
+            color: black;
+        }
+
+        .modal-close.success {
+            background: #2d5a2d;
+            border-color: #2d5a2d;
+        }
+
+        .modal-close.success:hover {
+            background: white;
+            color: #2d5a2d;
+        }
+
+        .modal-close.error {
+            background: #8b2635;
+            border-color: #8b2635;
+        }
+
+        .modal-close.error:hover {
+            background: white;
+            color: #8b2635;
         }
     </style>
 </head>
@@ -318,7 +429,76 @@ To comply with the previous license, the source code and assets of this project 
         </div>
     </div>
 
-    <script>
+    <!-- Modal Popup -->
+    <div id="modalOverlay" class="modal-overlay">
+        <div class="modal">
+            <div id="modalHeader" class="modal-header">
+                <div id="modalIcon" class="modal-icon"></div>
+                <h2 id="modalTitle" class="modal-title"></h2>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage" class="modal-message"></p>
+                <button id="modalClose" class="modal-close" onclick="closeModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>    <script>
+        // Modal functions
+        function showModal(type, title, message) {
+            const overlay = document.getElementById('modalOverlay');
+            const header = document.getElementById('modalHeader');
+            const icon = document.getElementById('modalIcon');
+            const titleElement = document.getElementById('modalTitle');
+            const messageElement = document.getElementById('modalMessage');
+            const closeButton = document.getElementById('modalClose');
+
+            // Set content
+            titleElement.textContent = title;
+            messageElement.textContent = message;
+
+            // Set styles based on type
+            if (type === 'success') {
+                header.className = 'modal-header success';
+                closeButton.className = 'modal-close success';
+                icon.textContent = '🎉';
+            } else if (type === 'error') {
+                header.className = 'modal-header error';
+                closeButton.className = 'modal-close error';
+                icon.textContent = '⚠️';
+            } else {
+                header.className = 'modal-header';
+                closeButton.className = 'modal-close';
+                icon.textContent = 'ℹ️';
+            }
+
+            // Show modal
+            overlay.classList.add('show');
+            
+            // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            const overlay = document.getElementById('modalOverlay');
+            overlay.classList.remove('show');
+            
+            // Restore background scrolling
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('modalOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
         const tipoCartaSelect = document.getElementById('tipo_carta');
         const cartaNegraSection = document.getElementById('carta_negra_section');
         const cartaBlancaSection = document.getElementById('carta_blanca_section');
@@ -372,17 +552,18 @@ To comply with the previous license, the source code and assets of this project 
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('¡Gracias parcero! Tu contribución ha sido recibida. Te contactaremos si necesitamos más información. 🇨🇴');
+                    showModal('success', '¡Éxito! 🇨🇴', '¡Gracias parcero! Tu contribución ha sido recibida. Te contactaremos si necesitamos más información.');
                     this.reset();
                     cartaNegraSection.style.display = 'none';
                     cartaBlancaSection.style.display = 'none';
                 } else {
-                    alert('Error al enviar la contribución: ' + (result.errors ? result.errors.join(', ') : result.error));
+                    const errorMessage = result.errors ? result.errors.join(', ') : result.error;
+                    showModal('error', 'Error al enviar', 'Error al enviar la contribución: ' + errorMessage);
                 }
                 
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error de conexión. Por favor intenta de nuevo.');
+                showModal('error', 'Error de conexión', 'Error de conexión. Por favor intenta de nuevo.');
             } finally {
                 // Restore button state
                 submitBtn.textContent = originalText;
