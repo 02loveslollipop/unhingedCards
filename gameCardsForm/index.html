@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartas Colombianas - Contribuye al Juego</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: white;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border: 2px solid black;
+        }
+
+        .header {
+            background: black;
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 2px solid black;
+        }
+
+        .logo-space {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            color: #ccc;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            font-weight: normal;
+        }
+
+        .form-section {
+            padding: 40px 30px;
+        }
+
+        .intro {
+            border: 2px solid black;
+            padding: 25px;
+            margin-bottom: 30px;
+            background: #f8f8f8;
+        }
+
+        .intro h3 {
+            color: black;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+
+        .intro p {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .intro ul {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            color: black;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .required {
+            color: black;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid black;
+            background: white;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="email"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            background: #f8f8f8;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .card-examples {
+            background: white;
+            border: 2px solid black;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .card-examples h4 {
+            color: black;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .card-examples ul {
+            color: #333;
+            margin-left: 20px;
+        }
+
+        .card-examples li {
+            margin-bottom: 5px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 2px solid black;
+            background: white;
+        }
+
+        .checkbox-group input[type="checkbox"]:checked {
+            background: black;
+        }
+
+        .submit-btn {
+            background: black;
+            color: white;
+            padding: 18px 40px;
+            border: 2px solid black;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: inherit;
+        }
+
+        .submit-btn:hover {
+            background: white;
+            color: black;
+        }
+
+        .submit-btn:active {
+            background: #f0f0f0;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 2px solid black;
+            background: #f8f8f8;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border: 1px solid black;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+            
+            .form-section {
+                padding: 30px 20px;
+            }
+
+            .logo-space {
+                width: 100px;
+                height: 100px;
+            }
+        }
+
+        /* Custom select styling */
+        select {
+            appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path fill="black" d="M6 8L0 0h12z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 15px center;
+            background-size: 12px;
+        }
+
+        /* Hidden sections styling */
+        #carta_negra_section,
+        #carta_blanca_section {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo-space">
+                <img src="logo.png" alt="Logo" style="max-width: 100%; max-height: 100%;">
+            </div>
+            <h1 class="title">Unhinged Cards</h1>
+            <p class="subtitle">¡Ayúdanos a hacer el juego de cartas para adultos en versión Colombiana!</p>
+        </div>
+
+        <div class="form-section">
+            <div class="intro">
+                <h3>¡Bienvenido! 🤝</h3>
+                <p>Estamos creando una versión colombiana de este popular juego de cartas para adultos. Queremos que las cartas reflejen nuestra cultura, nuestras expresiones, situaciones cotidianas y nuestro humor tan característico.</p>
+                <p><strong>¿Cómo funciona?</strong> El juego tiene dos tipos de cartas:</p>
+                <ul>
+                    <li><strong>Cartas Negras:</strong> Preguntas, situaciones o frases incompletas</li>
+                    <li><strong>Cartas Blancas:</strong> Respuestas, completaciones o palabras/frases divertidas</li>
+                </ul>
+            </div>
+
+            <form id="cartasForm">
+                <div class="form-group">
+                    <label for="tipo_carta">¿Qué tipo de carta quieres proponer? <span class="required">*</span></label>
+                    <select id="tipo_carta" name="tipo_carta" required>
+                        <option value="">Selecciona el tipo</option>
+                        <option value="negra">Carta Negra (Pregunta/Situación)</option>
+                        <option value="blanca">Carta Blanca (Respuesta/Frase)</option>
+                        <option value="ambas">Ambas</option>
+                    </select>
+                </div>
+
+                <div id="carta_negra_section" style="display: none;">
+                    <div class="form-group">
+                        <label for="carta_negra">Tu propuesta de Carta Negra</label>
+                        <textarea id="carta_negra" name="carta_negra" placeholder="Ejemplo: 'Lo que más me da pena de Colombia es ___' o '¿Qué pasa cuando un paisano llega a Bogotá?'"></textarea>
+                        <div class="card-examples">
+                            <h4>💡 Ideas para Cartas Negras:</h4>
+                            <ul>
+                                <li>"El regalo perfecto para un colombiano es ___"</li>
+                                <li>"¿Qué nunca falta en una finca colombiana?"</li>
+                                <li>"Lo primero que hace un colombiano cuando llega del exterior es ___"</li>
+                                <li>"El peor castigo para un colombiano sería ___"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="carta_blanca_section" style="display: none;">
+                    <div class="form-group">
+                        <label for="carta_blanca">Tu propuesta de Carta Blanca</label>
+                        <textarea id="carta_blanca" name="carta_blanca" placeholder="Ejemplo: 'Arepa con queso y hogao' o 'Un man pidiendo el fiado'"></textarea>
+                        <div class="card-examples">
+                            <h4>💡 Ideas para Cartas Blancas:</h4>
+                            <ul>
+                                <li>"El man del gas"</li>
+                                <li>"Quedarse sin internet un domingo"</li>
+                                <li>"Pedir fiado en la tienda"</li>
+                                <li>"La abuela echando bendiciones"</li>
+                                <li>"Juemadre"</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="contexto">Contexto o explicación (opcional)</label>
+                    <textarea id="contexto" name="contexto" placeholder="Si tu carta necesita contexto cultural o una explicación, escríbela aquí"></textarea>
+                </div>
+
+                <button type="submit" class="submit-btn">¡Enviar mi carta! 🚀</button>
+            </form>
+        </div>
+
+        <div class="footer">
+            <p>Cards Against Humanity is free to use under the Creative Commons BY-NC-SA 2.0 License (http://creativecommons.org/licenses/by-nc-sa/2.0/).
+This project, "Unhinged Cards", is a derivative work offered under the same license. 
+It is not for sale, does not generate profit, and is in no way affiliated with Cards Against Humanity LLC.
+Please comply with the Laws of Man and Nature. Do not use this game for nefarious purposes such as libel, slander, diarrhea,
+copyright infringement, harassment, or death.
+To comply with the previous license, the source code and assets of this project are available at: https://github.com/02loveslollipop/unhingedCards</p>
+        </div>
+    </div>
+
+    <script>
+        const tipoCartaSelect = document.getElementById('tipo_carta');
+        const cartaNegraSection = document.getElementById('carta_negra_section');
+        const cartaBlancaSection = document.getElementById('carta_blanca_section');
+
+        tipoCartaSelect.addEventListener('change', function() {
+            const valor = this.value;
+            
+            if (valor === 'negra') {
+                cartaNegraSection.style.display = 'block';
+                cartaBlancaSection.style.display = 'none';
+            } else if (valor === 'blanca') {
+                cartaNegraSection.style.display = 'none';
+                cartaBlancaSection.style.display = 'block';
+            } else if (valor === 'ambas') {
+                cartaNegraSection.style.display = 'block';
+                cartaBlancaSection.style.display = 'block';
+            } else {
+                cartaNegraSection.style.display = 'none';
+                cartaBlancaSection.style.display = 'none';
+            }
+        });        document.getElementById('cartasForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.querySelector('.submit-btn');
+            const originalText = submitBtn.textContent;
+            
+            // Show loading state
+            submitBtn.textContent = 'Enviando... ⏳';
+            submitBtn.disabled = true;
+            
+            try {
+                const formData = new FormData(this);
+                const datos = {};
+                for (let [key, value] of formData.entries()) {
+                    if (value.trim()) { // Only include non-empty values
+                        datos[key] = value.trim();
+                    }
+                }
+                
+                console.log('Datos del formulario:', datos);
+                
+                // Submit to your Cloudflare Worker
+                const response = await fetch('YOUR_WORKER_URL_HERE', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(datos)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('¡Gracias parcero! Tu contribución ha sido recibida. Te contactaremos si necesitamos más información. 🇨🇴');
+                    this.reset();
+                    cartaNegraSection.style.display = 'none';
+                    cartaBlancaSection.style.display = 'none';
+                } else {
+                    alert('Error al enviar la contribución: ' + (result.errors ? result.errors.join(', ') : result.error));
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error de conexión. Por favor intenta de nuevo.');
+            } finally {
+                // Restore button state
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
