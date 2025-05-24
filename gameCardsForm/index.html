@@ -361,7 +361,7 @@ To comply with the previous license, the source code and assets of this project 
                 console.log('Datos del formulario:', datos);
                 
                 // Submit to your Cloudflare Worker
-                const response = await fetch('YOUR_WORKER_URL_HERE', {
+                const response = await fetch('https://form-store-worker.02loveslollipop.workers.dev', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
