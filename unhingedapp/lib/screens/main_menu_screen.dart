@@ -151,7 +151,7 @@ This project, "Unhinged Cards", is a derivative work offered under the same lice
 It is not for sale, does not generate profit, and is in no way affiliated with Cards Against Humanity LLC.
 Please comply with the Laws of Man and Nature. Do not use this game for nefarious purposes such as libel, slander, diarrhea,
 copyright infringement, harassment, or death.
-To comply with the previous license, the source code and assets of this project are available at: (add repo link here).
+To comply with the previous license, the source code and assets of this project are available at: https://github.com/02loveslollipop/unhingedCards
 ''';
 
     return Scaffold(
