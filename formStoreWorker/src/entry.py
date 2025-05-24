@@ -1,10 +1,7 @@
-from js import Response, Request
+from js import Response
 import json
-from datetime import datetime, timedelta
-import random
-from hashlib import md5
-import pyodide
 import traceback
+from urllib.parse import unquote_plus
 
 def validate_form_data(data):
     """Validate form data according to business rules"""
@@ -43,19 +40,21 @@ async def handle_form_submission(request, env):
     """Handle form submission and store in D1 database"""
     try:
         # Parse form data
-        if request.headers.get('content-type', '').startswith('application/json'):
+        content_type = request.headers.get('content-type', '')
+        if 'application/json' in content_type:
             form_data = await request.json()
         else:
             # Handle form-encoded data
             body = await request.text()
             form_data = {}
-            for pair in body.split('&'):
-                if '=' in pair:
-                    key, value = pair.split('=', 1)
-                    # URL decode
-                    key = key.replace('+', ' ').replace('%20', ' ')
-                    value = value.replace('+', ' ').replace('%20', ' ')
-                    form_data[key] = value
+            if body:
+                for pair in body.split('&'):
+                    if '=' in pair:
+                        key, value = pair.split('=', 1)
+                        # URL decode
+                        key = unquote_plus(key)
+                        value = unquote_plus(value)
+                        form_data[key] = value
         
         # Validate form data
         validation_errors = validate_form_data(form_data)
@@ -65,46 +64,45 @@ async def handle_form_submission(request, env):
                     "success": False,
                     "errors": validation_errors
                 }),
-                status=400,
-                headers={"Content-Type": "application/json"}
+                {
+                    "status": 400,
+                    "headers": {"Content-Type": "application/json"}
+                }
             )
         
         # Get client information
         ip_address = request.headers.get('CF-Connecting-IP') or request.headers.get('X-Forwarded-For') or 'unknown'
-        user_agent = request.headers.get('User-Agent', 'unknown')
-        
-        # Prepare data for insertion
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user_agent = request.headers.get('User-Agent') or 'unknown'
         
         # Insert into database
         query = """
-            INSERT INTO form (tipo_carta, carta_negra, carta_blanca, contexto, ip_address, user_agent, submitted_at, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO form (tipo_carta, carta_negra, carta_blanca, contexto, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
         
         result = await env.DB.prepare(query).bind(
             form_data.get('tipo_carta'),
-            form_data.get('carta_negra', ''),
-            form_data.get('carta_blanca', ''),
-            form_data.get('contexto', ''),
+            form_data.get('carta_negra') or None,
+            form_data.get('carta_blanca') or None,
+            form_data.get('contexto') or None,
             ip_address,
-            user_agent,
-            current_time,
-            current_time
+            user_agent
         ).run()
         
         return Response.new(
             json.dumps({
                 "success": True,
                 "message": "¡Gracias parcero! Tu contribución ha sido recibida.",
-                "id": result.meta.last_row_id if hasattr(result, 'meta') else None
+                "id": result.meta.last_row_id if hasattr(result, 'meta') and hasattr(result.meta, 'last_row_id') else None
             }),
-            status=200,
-            headers={
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "POST, OPTIONS",
-                "Access-Control-Allow-Headers": "Content-Type"
+            {
+                "status": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "POST, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type"
+                }
             }
         )
         
@@ -113,30 +111,34 @@ async def handle_form_submission(request, env):
             json.dumps({
                 "success": False,
                 "error": "Internal server error",
-                "details": str(e) if env.get('DEBUG') else None
+                "details": str(e)
             }),
-            status=500,
-            headers={"Content-Type": "application/json"}
+            {
+                "status": 500,
+                "headers": {"Content-Type": "application/json"}
+            }
         )
 
-async def handle_options(request):
+def handle_options():
     """Handle CORS preflight requests"""
     return Response.new(
         "",
-        status=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Max-Age": "86400"
+        {
+            "status": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Max-Age": "86400"
+            }
         }
     )
 
-async def on_fetch(request, env):
+async def on_fetch(request, env):async def on_fetch(request, env):
     try:
         # Handle CORS preflight
         if request.method == "OPTIONS":
-            return await handle_options(request)
+            return handle_options()
         
         # Handle form submissions
         if request.method == "POST":
@@ -152,26 +154,21 @@ async def on_fetch(request, env):
                         "POST /": "Submit form data"
                     }
                 }),
-                status=200,
-                headers={"Content-Type": "application/json"}
+                {
+                    "status": 200,
+                    "headers": {"Content-Type": "application/json"}
+                }
             )
         
         # Method not allowed
         return Response.new(
             json.dumps({"error": "Method not allowed"}),
-            status=405,
-            headers={"Content-Type": "application/json"}
-        )        
-    except pyodide.ffi.JsException as e:
-        return Response.new(
-            json.dumps({
-                "success": False,
-                "error_type": "js",
-                "error": str(e)
-            }),
-            status=500,
-            headers={"Content-Type": "application/json"}
+            {
+                "status": 405,
+                "headers": {"Content-Type": "application/json"}
+            }
         )
+        
     except Exception as e:
         return Response.new(
             json.dumps({
@@ -180,6 +177,8 @@ async def on_fetch(request, env):
                 "error": str(e),
                 "traceback": traceback.format_exc()
             }),
-            status=500,
-            headers={"Content-Type": "application/json"}
+            {
+                "status": 500,
+                "headers": {"Content-Type": "application/json"}
+            }
         )
