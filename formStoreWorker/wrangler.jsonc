@@ -5,14 +5,11 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "form-store-worker",
-	"main": "src/entry.py",
+	"main": "src/index.js",
 	"compatibility_date": "2025-04-06",
-	"compatibility_flags": [
-		"python_workers"
-	],
 	"observability": {
 		"enabled": true
-	},	"d1_databases": [
+	},"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "unhinged-cards-db",
