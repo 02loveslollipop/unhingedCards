@@ -8,12 +8,12 @@ class Leaderboard extends StatefulWidget {
   final bool is_game_over;
 
   const Leaderboard({
-    Key? key,
+    super.key,
     required this.players,
     this.display_duration = 5,
     required this.on_timeout,
     this.is_game_over = false,
-  }) : super(key: key);
+  });
 
   @override
   State<Leaderboard> createState() => _LeaderboardState();
@@ -153,8 +153,8 @@ class _LeaderboardState extends State<Leaderboard>
               // Player rows
               ...List.generate(_sorted_players.length, (index) {
                 final player = _sorted_players[index];
-                final bool is_card_czar = player.value['isCardCzar'] == true;
-                final bool is_host = player.value['isHost'] == true;
+                final bool isCardCzar = player.value['isCardCzar'] == true;
+                final bool isHost = player.value['isHost'] == true;
 
                 return SlideTransition(
                   position: Tween<Offset>(
@@ -208,7 +208,7 @@ class _LeaderboardState extends State<Leaderboard>
                                           : FontWeight.normal,
                                 ),
                               ),
-                              if (is_card_czar)
+                              if (isCardCzar)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8),
                                   child: Icon(
@@ -217,7 +217,7 @@ class _LeaderboardState extends State<Leaderboard>
                                     size: 20,
                                   ),
                                 ),
-                              if (is_host)
+                              if (isHost)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8),
                                   child: Icon(

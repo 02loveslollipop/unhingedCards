@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'dart:math';
 import '../components/player_list.dart';
 import '../mixins/lobby_state_mixin.dart'; // Import the mixin
 
@@ -274,100 +273,54 @@ class _HostLobbyScreenState extends State<HostLobbyScreen>
                           offset: const Offset(0, 2),
                         ),
                       ],
-                    ),
-                    child: Column(
+                    ),                    child: Column(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0,
-                                vertical: 8.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    spreadRadius: 1,
-                                    blurRadius: 3,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                widget.roomId,
-                                style: TextStyle(
-                                  fontSize:
-                                      Theme.of(
-                                        context,
-                                      ).textTheme.headlineSmall?.fontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                  letterSpacing: 1.0,
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(
+                              ClipboardData(text: widget.roomId),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Room ID copied to clipboard!',
                                 ),
-                                textAlign: TextAlign.center,
+                                duration: Duration(seconds: 1),
+                                backgroundColor: Colors.green,
                               ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 8.0,
                             ),
-                            const SizedBox(width: 8),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  Clipboard.setData(
-                                    ClipboardData(text: widget.roomId),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Room ID copied to clipboard!',
-                                      ),
-                                      duration: Duration(seconds: 1),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[800],
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.2),
-                                        spreadRadius: 1,
-                                        blurRadius: 2,
-                                        offset: const Offset(0, 1),
-                                      ),
-                                    ],
-                                  ),
-                                  child: const Row(
-                                    children: [
-                                      Icon(
-                                        Icons.copy,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        'Copy ID',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                            child: Text(
+                              widget.roomId,
+                              style: TextStyle(
+                                fontSize:
+                                    Theme.of(
+                                      context,
+                                    ).textTheme.headlineSmall?.fontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                                letterSpacing: 1.0,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: 15),

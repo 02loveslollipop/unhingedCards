@@ -12,7 +12,7 @@ class PlayerHand extends StatefulWidget {
   final bool auto_submit_on_timeout;
 
   const PlayerHand({
-    Key? key,
+    super.key,
     required this.cards,
     required this.cards_to_submit,
     required this.selected_cards,
@@ -21,7 +21,7 @@ class PlayerHand extends StatefulWidget {
     this.is_submission_enabled = true,
     this.submission_time_limit = 20,
     this.auto_submit_on_timeout = true,
-  }) : super(key: key);
+  });
 
   @override
   State<PlayerHand> createState() => _PlayerHandState();
@@ -41,18 +41,18 @@ class _PlayerHandState extends State<PlayerHand> {
   }
 
   @override
-  void didUpdateWidget(PlayerHand old_widget) {
-    super.didUpdateWidget(old_widget);
+  void didUpdateWidget(PlayerHand oldWidget) {
+    super.didUpdateWidget(oldWidget);
 
     // Start timer if submission was just enabled
-    if (widget.is_submission_enabled && !old_widget.is_submission_enabled) {
+    if (widget.is_submission_enabled && !oldWidget.is_submission_enabled) {
       _time_left = widget.submission_time_limit;
       _timer_started = false;
       _start_submission_timer();
     }
 
     // Reset timer if cards to submit changed
-    if (widget.cards_to_submit != old_widget.cards_to_submit) {
+    if (widget.cards_to_submit != oldWidget.cards_to_submit) {
       _time_left = widget.submission_time_limit;
       _timer_started = false;
       if (widget.is_submission_enabled) {
@@ -88,48 +88,48 @@ class _PlayerHandState extends State<PlayerHand> {
   void _auto_select_cards() {
     // If no cards have been selected yet
     if (widget.selected_cards.isEmpty) {
-      final cards_to_auto_select = <Map<String, dynamic>>[];
-      final available_cards = List<Map<String, dynamic>>.from(widget.cards);
+      final cardsToAutoSelect = <Map<String, dynamic>>[];
+      final availableCards = List<Map<String, dynamic>>.from(widget.cards);
 
       // Shuffle cards to randomize selection
-      available_cards.shuffle();
+      availableCards.shuffle();
 
       // Select the required number of cards or as many as available
       final count =
-          widget.cards_to_submit <= available_cards.length
+          widget.cards_to_submit <= availableCards.length
               ? widget.cards_to_submit
-              : available_cards.length;
+              : availableCards.length;
 
       for (var i = 0; i < count; i++) {
-        final card = available_cards[i];
+        final card = availableCards[i];
         widget.on_card_selected(card);
-        cards_to_auto_select.add(card);
+        cardsToAutoSelect.add(card);
       }
 
       // If we have the right number of cards, submit them
-      if (cards_to_auto_select.length == widget.cards_to_submit) {
+      if (cardsToAutoSelect.length == widget.cards_to_submit) {
         widget.on_cards_submitted();
       }
     }
     // If some cards are selected but not enough
     else if (widget.selected_cards.length < widget.cards_to_submit) {
-      final available_cards =
+      final availableCards =
           widget.cards
               .where((card) => !widget.selected_cards.contains(card))
               .toList();
 
       // Shuffle cards to randomize selection
-      available_cards.shuffle();
+      availableCards.shuffle();
 
       // Select the remaining required cards
       final remaining = widget.cards_to_submit - widget.selected_cards.length;
       final count =
-          remaining <= available_cards.length
+          remaining <= availableCards.length
               ? remaining
-              : available_cards.length;
+              : availableCards.length;
 
       for (var i = 0; i < count; i++) {
-        widget.on_card_selected(available_cards[i]);
+        widget.on_card_selected(availableCards[i]);
       }
 
       // If we now have the right number of cards, submit them
@@ -216,7 +216,7 @@ class _PlayerHandState extends State<PlayerHand> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             children: [
               ...widget.cards.map((card) {
-                final bool is_selected = widget.selected_cards.contains(card);
+                final bool isSelected = widget.selected_cards.contains(card);
                 return Padding(
                   padding: const EdgeInsets.only(right: 16),
                   child: Stack(
@@ -225,7 +225,7 @@ class _PlayerHandState extends State<PlayerHand> {
                       GameCard(
                         cardData: card,
                         isBlack: false,
-                        isSelected: is_selected,
+                        isSelected: isSelected,
                         onTap:
                             widget.is_submission_enabled
                                 ? () => widget.on_card_selected(card)
@@ -233,7 +233,7 @@ class _PlayerHandState extends State<PlayerHand> {
                       ),
 
                       // Selection indicator
-                      if (is_selected && widget.cards_to_submit > 1)
+                      if (isSelected && widget.cards_to_submit > 1)
                         Positioned(
                           top: 8,
                           right: 8,

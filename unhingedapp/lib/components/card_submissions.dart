@@ -9,13 +9,13 @@ class CardSubmissions extends StatefulWidget {
   final int selection_time_limit;
 
   const CardSubmissions({
-    Key? key,
+    super.key,
     required this.submissions,
     required this.players,
     required this.on_winner_selected,
     this.is_interactive = true,
     this.selection_time_limit = 30,
-  }) : super(key: key);
+  });
 
   @override
   State<CardSubmissions> createState() => _CardSubmissionsState();
@@ -71,20 +71,20 @@ class _CardSubmissionsState extends State<CardSubmissions>
     if (widget.submissions.isEmpty) return;
 
     // Get a random player ID from the submissions
-    final List<String> player_ids = widget.submissions.keys.toList();
-    player_ids.shuffle();
+    final List<String> playerIds = widget.submissions.keys.toList();
+    playerIds.shuffle();
 
-    if (player_ids.isNotEmpty) {
-      final winner_id = player_ids.first;
-      final winning_cards = widget.submissions[winner_id]!;
-      widget.on_winner_selected(winner_id, winning_cards);
+    if (playerIds.isNotEmpty) {
+      final winnerId = playerIds.first;
+      final winningCards = widget.submissions[winnerId]!;
+      widget.on_winner_selected(winnerId, winningCards);
     }
   }
 
-  void _focus_submission(String player_id) {
+  void _focus_submission(String playerId) {
     setState(() {
       _focused_submission_id =
-          _focused_submission_id == player_id ? null : player_id;
+          _focused_submission_id == playerId ? null : playerId;
     });
   }
 
@@ -111,7 +111,7 @@ class _CardSubmissionsState extends State<CardSubmissions>
   @override
   Widget build(BuildContext context) {
     // Convert submissions to a list for easy rendering
-    final submission_entries = widget.submissions.entries.toList();
+    final submissionEntries = widget.submissions.entries.toList();
 
     return Column(
       children: [
@@ -182,7 +182,7 @@ class _CardSubmissionsState extends State<CardSubmissions>
           child:
               _focused_submission_id != null
                   ? _build_focused_submission()
-                  : _build_submissions_grid(submission_entries),
+                  : _build_submissions_grid(submissionEntries),
         ),
       ],
     );
@@ -202,11 +202,11 @@ class _CardSubmissionsState extends State<CardSubmissions>
       itemCount: submissions.length,
       itemBuilder: (context, index) {
         final entry = submissions[index];
-        final String player_id = entry.key;
+        final String playerId = entry.key;
         final List<Map<String, dynamic>> cards = entry.value;
 
         // If multiple cards, just show the first one with an indicator
-        final Map<String, dynamic> display_card = cards.first;
+        final Map<String, dynamic> displayCard = cards.first;
 
         return SlideTransition(
           position: Tween<Offset>(
@@ -226,9 +226,9 @@ class _CardSubmissionsState extends State<CardSubmissions>
             onTap: () {
               if (widget.is_interactive) {
                 if (cards.length > 1) {
-                  _focus_submission(player_id);
+                  _focus_submission(playerId);
                 } else {
-                  widget.on_winner_selected(player_id, cards);
+                  widget.on_winner_selected(playerId, cards);
                 }
               }
             },
@@ -238,7 +238,7 @@ class _CardSubmissionsState extends State<CardSubmissions>
                   children: [
                     // The card
                     GameCard(
-                      cardData: display_card,
+                      cardData: displayCard,
                       isBlack: false,
                       animate: false,
                     ),
@@ -283,7 +283,7 @@ class _CardSubmissionsState extends State<CardSubmissions>
                 if (widget.is_interactive)
                   TextButton(
                     onPressed: () {
-                      widget.on_winner_selected(player_id, cards);
+                      widget.on_winner_selected(playerId, cards);
                     },
                     child: Text(
                       'SELECT',

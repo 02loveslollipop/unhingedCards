@@ -4,8 +4,7 @@ class LoadingAnimation extends StatefulWidget {
   final String message;
   final double size;
 
-  const LoadingAnimation({Key? key, required this.message, this.size = 50.0})
-    : super(key: key);
+  const LoadingAnimation({super.key, required this.message, this.size = 50.0});
 
   @override
   State<LoadingAnimation> createState() => _LoadingAnimationState();

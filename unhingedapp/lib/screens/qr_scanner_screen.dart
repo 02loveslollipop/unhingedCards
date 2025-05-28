@@ -1,4 +1,3 @@
-import 'dart:developer';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
@@ -7,8 +6,7 @@ import 'package:flutter/foundation.dart'; // Import for kIsWeb
 
 class QRScannerScreen extends StatefulWidget {
   final Function(String) onQRCodeScanned;
-  const QRScannerScreen({Key? key, required this.onQRCodeScanned})
-    : super(key: key);
+  const QRScannerScreen({super.key, required this.onQRCodeScanned});
 
   @override
   State<QRScannerScreen> createState() => _QRScannerScreenState();

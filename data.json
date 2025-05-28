@@ -1,0 +1,277 @@
+{
+  "blackCards": [
+    {
+      "pick": 1,
+      "text": "What's my secret power?",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "What never fails to liven up the party?",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "I got 99 problems but _____ ain't one.",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "It's a pity that kids these days are all getting involved with _____.",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "What is Batman's guilty pleasure?",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "TSA guidelines now prohibit _____ on airplanes.",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "What ended my last relationship?",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "MTV's new reality show features eight washed-up celebrities living with _____.",
+      "type": "black"
+    },
+    {
+      "pick": 1,
+      "text": "I drink to forget _____.",
+      "type": "black"
+    }
+  ],
+  "createdAt": 1748446613029,
+  "currentBlackCard": {
+    "pick": 1,
+    "text": "Why am I sticky?",
+    "type": "black"
+  },
+  "gameState": "showing_round_result",
+  "hostPlayerId": "player_62087",
+  "playerHands": {
+    "player_20561": [
+      {
+        "id": "w12",
+        "text": "Tasteful sideboob.",
+        "type": "white"
+      },
+      {
+        "id": "w4",
+        "text": "The crushing weight of existential dread.",
+        "type": "white"
+      },
+      {
+        "id": "w8",
+        "text": "The tiny calloused hands of the Chinese children that made this card.",
+        "type": "white"
+      }
+    ],
+    "player_62087": [
+      {
+        "id": "w20",
+        "text": "The inescapable death march of time.",
+        "type": "white"
+      },
+      {
+        "id": "w18",
+        "text": "A moment of silence.",
+        "type": "white"
+      },
+      {
+        "id": "w25",
+        "text": "Explosive decompression.",
+        "type": "white"
+      },
+      {
+        "id": "w3",
+        "text": "A 50-foot-tall robot.",
+        "type": "white"
+      }
+    ],
+    "player_72928": [
+      {
+        "id": "w14",
+        "text": "Catapults.",
+        "type": "white"
+      },
+      {
+        "id": "w19",
+        "text": "A really cool hat.",
+        "type": "white"
+      },
+      {
+        "id": "w5",
+        "text": "An alarming amount of mayonnaise.",
+        "type": "white"
+      }
+    ]
+  },
+  "players": {
+    "player_20561": {
+      "cards": [
+        {
+          "id": "w12",
+          "text": "Tasteful sideboob.",
+          "type": "white"
+        },
+        {
+          "id": "w4",
+          "text": "The crushing weight of existential dread.",
+          "type": "white"
+        },
+        {
+          "id": "w8",
+          "text": "The tiny calloused hands of the Chinese children that made this card.",
+          "type": "white"
+        }
+      ],
+      "hasSubmitted": false,
+      "id": "player_20561",
+      "isCardCzar": false,
+      "isHost": false,
+      "isWinner": false,
+      "name": "MagneticOyster"
+    },
+    "player_62087": {
+      "cards": [
+        {
+          "id": "w20",
+          "text": "The inescapable death march of time.",
+          "type": "white"
+        },
+        {
+          "id": "w18",
+          "text": "A moment of silence.",
+          "type": "white"
+        },
+        {
+          "id": "w25",
+          "text": "Explosive decompression.",
+          "type": "white"
+        },
+        {
+          "id": "w3",
+          "text": "A 50-foot-tall robot.",
+          "type": "white"
+        }
+      ],
+      "hasSubmitted": false,
+      "id": "player_62087",
+      "isCardCzar": true,
+      "isHost": true,
+      "isWinner": false,
+      "name": "AlertMacaw"
+    },
+    "player_72928": {
+      "cards": [
+        {
+          "id": "w14",
+          "text": "Catapults.",
+          "type": "white"
+        },
+        {
+          "id": "w19",
+          "text": "A really cool hat.",
+          "type": "white"
+        },
+        {
+          "id": "w5",
+          "text": "An alarming amount of mayonnaise.",
+          "type": "white"
+        }
+      ],
+      "hasSubmitted": false,
+      "id": "player_72928",
+      "isCardCzar": false,
+      "isHost": false,
+      "isWinner": false,
+      "name": "MoonlitPluto",
+      "score": 1
+    }
+  },
+  "roomId": "-ORMXVcP0N12u8UDr5mX",
+  "selectedCardTopic": "base_set_en",
+  "whiteCards": [
+    {
+      "id": "w11",
+      "text": "A lifetime of sadness.",
+      "type": "white"
+    },
+    {
+      "id": "w6",
+      "text": "Avocado toast.",
+      "type": "white"
+    },
+    {
+      "id": "w10",
+      "text": "Silence.",
+      "type": "white"
+    },
+    {
+      "id": "w21",
+      "text": "Puppies!",
+      "type": "white"
+    },
+    {
+      "id": "w9",
+      "text": "A disappointing salad.",
+      "type": "white"
+    },
+    {
+      "id": "w17",
+      "text": "Sudden Poop Explosion Disease.",
+      "type": "white"
+    },
+    {
+      "id": "w16",
+      "text": "A micropig wearing a tiny raincoat and booties.",
+      "type": "white"
+    },
+    {
+      "id": "w24",
+      "text": "The miracle of childbirth.",
+      "type": "white"
+    },
+    {
+      "id": "w13",
+      "text": "A sassy black woman.",
+      "type": "white"
+    },
+    {
+      "id": "w7",
+      "text": "Doing the right thing.",
+      "type": "white"
+    },
+    {
+      "id": "w2",
+      "text": "Crying into a bowl of cereal.",
+      "type": "white"
+    },
+    {
+      "id": "w23",
+      "text": "Emotions.",
+      "type": "white"
+    },
+    {
+      "id": "w1",
+      "text": "An unholy amount of glitter.",
+      "type": "white"
+    }
+  ],
+  "winningSubmission": {
+    "cards": [
+      {
+        "id": "w15",
+        "text": "Homeless people.",
+        "type": "white"
+      }
+    ],
+    "playerId": "player_72928"
+  }
+}
