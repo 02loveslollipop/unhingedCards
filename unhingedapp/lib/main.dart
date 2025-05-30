@@ -20,7 +20,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Unhinged Cards',      theme: ThemeData(
+      title: 'Unhinged Cards',
+      theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
         cardColor: Colors.grey[850], // Darker cards

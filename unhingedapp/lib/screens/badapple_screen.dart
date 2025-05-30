@@ -32,7 +32,9 @@ class _BadAppleScreenState extends State<BadAppleScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 32),              // Video player with scaling for better visibility
+              const SizedBox(
+                height: 32,
+              ), // Video player with scaling for better visibility
               Transform.scale(
                 scale: 4.0, // Scale up the video for better visibility
                 child: const BadAppleVideoPlayer(
@@ -47,10 +49,7 @@ class _BadAppleScreenState extends State<BadAppleScreen> {
               const Text(
                 'This video is rendered using a custom ESP32 codec\nwith delta compression and run-length encoding.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 16),
               Row(

@@ -21,7 +21,7 @@ class MainMenuScreen extends StatefulWidget {
 class _MainMenuScreenState extends State<MainMenuScreen> {
   // Create State class
   final DatabaseReference _databaseReference = FirebaseDatabase.instance.ref();
-  
+
   // Easter egg state tracking
   bool _unhingedPressed = false;
   bool _cardsPressed = false;
@@ -41,7 +41,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     setState(() {
       _unhingedPressed = true;
     });
-    
+
     // Check if both are pressed
     if (_cardsPressed) {
       _triggerEasterEgg();
@@ -60,7 +60,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     setState(() {
       _cardsPressed = true;
     });
-    
+
     // Check if both are pressed
     if (_unhingedPressed) {
       _triggerEasterEgg();
@@ -77,19 +77,17 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
 
   void _triggerEasterEgg() {
     _easterEggTimer?.cancel();
-    
+
     // Reset state
     setState(() {
       _unhingedPressed = false;
       _cardsPressed = false;
     });
-    
+
     // Navigate to BadApple screen
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const BadAppleScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const BadAppleScreen()),
     );
   }
 
@@ -234,7 +232,8 @@ To comply with the previous license, the source code and assets of this project 
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[              Column(
+            children: <Widget>[
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   GestureDetector(
@@ -243,7 +242,10 @@ To comply with the previous license, the source code and assets of this project 
                       duration: const Duration(milliseconds: 200),
                       padding: EdgeInsets.all(_unhingedPressed ? 8.0 : 0.0),
                       decoration: BoxDecoration(
-                        color: _unhingedPressed ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                        color:
+                            _unhingedPressed
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.transparent,
                         borderRadius: BorderRadius.circular(8.0),
                       ),
                       child: Text(
@@ -313,11 +315,13 @@ To comply with the previous license, the source code and assets of this project 
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.0),
                   ),
-                ),                onPressed: _navigateToQRScanner, // Updated onPressed
+                ),
+                onPressed: _navigateToQRScanner, // Updated onPressed
                 child: const Text(
                   'Join Room',
                   style: TextStyle(color: buttonTextColor),
-                ),              ),
+                ),
+              ),
               const SizedBox(height: 48),
               Text(
                 disclaimerText,

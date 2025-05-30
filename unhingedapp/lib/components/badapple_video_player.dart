@@ -51,12 +51,8 @@ class _BadAppleVideoPlayerState extends State<BadAppleVideoPlayer> {
     try {
       final byteData = await rootBundle.load(widget.assetPath);
       final bytes = byteData.buffer.asUint8List();
-      
-      _codec = BadAppleCodec(
-        bytes,
-        width: widget.width,
-        height: widget.height,
-      );
+
+      _codec = BadAppleCodec(bytes, width: widget.width, height: widget.height);
 
       // Initialize with white frame
       _currentFrame = List.generate(
@@ -138,9 +134,7 @@ class _BadAppleVideoPlayerState extends State<BadAppleVideoPlayer> {
       return SizedBox(
         width: widget.width.toDouble(),
         height: widget.height.toDouble(),
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -151,9 +145,7 @@ class _BadAppleVideoPlayerState extends State<BadAppleVideoPlayer> {
         Container(
           width: widget.width.toDouble(),
           height: widget.height.toDouble(),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
           child: CustomPaint(
             painter: BadAppleFramePainter(_currentFrame),
             size: Size(widget.width.toDouble(), widget.height.toDouble()),
@@ -168,10 +160,7 @@ class _BadAppleVideoPlayerState extends State<BadAppleVideoPlayer> {
               icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
               onPressed: _isPlaying ? pause : play,
             ),
-            IconButton(
-              icon: const Icon(Icons.stop),
-              onPressed: stop,
-            ),
+            IconButton(icon: const Icon(Icons.stop), onPressed: stop),
             Text('$_currentFrameIndex / $_totalFrames'),
           ],
         ),
@@ -219,10 +208,10 @@ class BadAppleCodec {
   final Uint8List _byteStream;
   final int width;
   final int height;
-  
+
   int _streamPointer = 0;
   late List<List<bool>> _frameBuffer;
-  
+
   // Decoder state
   bool _firstFF = false;
   int _currentLine = 0;
@@ -234,10 +223,7 @@ class BadAppleCodec {
 
   void _initializeFrameBuffer() {
     // Initialize with white background (true = white, false = black)
-    _frameBuffer = List.generate(
-      height,
-      (index) => List.filled(width, true),
-    );
+    _frameBuffer = List.generate(height, (index) => List.filled(width, true));
   }
 
   int getTotalFrames() {
@@ -313,9 +299,7 @@ class BadAppleCodec {
   }
 
   List<List<bool>> _copyFrame() {
-    return _frameBuffer
-        .map((row) => List<bool>.from(row))
-        .toList();
+    return _frameBuffer.map((row) => List<bool>.from(row)).toList();
   }
 
   void reset() {
