@@ -40,10 +40,11 @@ class _GameCardState extends State<GameCard> with TickerProviderStateMixin {
     // Flip animation (for revealing cards)
     _flipController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600), // Adjusted duration
     );
-    _flipAnimation = Tween<double>(begin: 0.0, end: math.pi).animate(
-      CurvedAnimation(parent: _flipController, curve: Curves.easeOutCubic),
+    // Animate controller value from 0.0 (front) to 1.0 (back)
+    _flipAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _flipController, curve: Curves.easeInOutCubic), // Smoother curve
     );
 
     // Rotation animation (for card dealing)
@@ -71,14 +72,9 @@ class _GameCardState extends State<GameCard> with TickerProviderStateMixin {
       _rotateController.forward();
     }
 
-    // Handle initial card state
-    if (widget.faceDown && widget.animate) {
-      // Only animate flipping if animations are enabled
-      Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted) {
-          _flipController.forward();
-        }
-      });
+    // Handle initial card state for faceDown
+    if (widget.faceDown) {
+      _flipController.value = 1.0; // Start face down (no animation, just set state)
     }
 
     if (widget.isSelected) {
@@ -99,40 +95,24 @@ class _GameCardState extends State<GameCard> with TickerProviderStateMixin {
       }
     }
 
-    // Handle animation triggers
+    // Handle animation triggers for deal animation
     if (widget.animate && !oldWidget.animate) {
       _rotateController.forward();
-      Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted && widget.faceDown) {
-          _flipController.forward();
-        }
-      });
+      // No automatic flip here, faceDown prop controls flip
     } else if (!widget.animate && oldWidget.animate) {
-      // If animations are disabled, set to final position immediately
       _rotateController.value = 1.0;
-      // Always show the correct side when not animating
-      _flipController.value = 0.0;
     }
 
-    // Handle face down changes
+    // Handle face down changes to trigger flip animation
     if (widget.faceDown != oldWidget.faceDown) {
-      if (widget.faceDown) {
-        if (widget.animate) {
-          // If changing to face down with animation, reset and trigger flip animation
-          _flipController.reset();
+      if (widget.animate) { // Only animate if widget.animate is true
+        if (widget.faceDown) { // Transitioning to face down
           _flipController.forward();
-        } else {
-          // If animations disabled, just set the value instantly
-          _flipController.value = 0.0;
-        }
-      } else if (_flipController.status == AnimationStatus.completed) {
-        if (widget.animate) {
-          // If turning face up with animation and animation was complete, reverse it
+        } else { // Transitioning to face up
           _flipController.reverse();
-        } else {
-          // If animations disabled, just set the value instantly
-          _flipController.value = 0.0;
         }
+      } else { // Not animating, set instantly
+        _flipController.value = widget.faceDown ? 1.0 : 0.0;
       }
     }
   }
@@ -151,54 +131,43 @@ class _GameCardState extends State<GameCard> with TickerProviderStateMixin {
       onTap: widget.onTap,
       child: AnimatedBuilder(
         animation: Listenable.merge([
-          _flipAnimation,
-          _rotateAnimation,
-          _scaleAnimation,
+          _rotateController, // For deal rotation
+          _scaleController,  // For selection scale
+          _flipController    // For flip
         ]),
         builder: (context, child) {
-          final animationValue = _flipAnimation.value / math.pi;
-          final bool showFront = animationValue <= 0.5;
+          final double flipValue = _flipAnimation.value; // Use the animation's value
+          final double flipAngle = flipValue * math.pi;   // 0 to PI radians for rotation
 
-          // For non-animated cards, determine visibility based on faceDown
-          final bool displayFront =
-              widget.animate ? showFront : !widget.faceDown;
-          final bool displayBack =
-              widget.animate ? !showFront : widget.faceDown;
+          // Content should switch halfway through the flip
+          final bool showFrontContent = flipValue < 0.5;
 
-          return Transform(
+          return Transform( // Apply selection scale
             alignment: Alignment.center,
-            transform:
-                Matrix4.identity()
-                  ..setEntry(3, 2, 0.001) // Perspective
-                  ..scale(_scaleAnimation.value),
-            child: Transform.rotate(
+            transform: Matrix4.identity()..scale(_scaleAnimation.value),
+            child: Transform.rotate( // Apply deal rotation
               angle: _rotateAnimation.value,
               alignment: Alignment.center,
-              child: Stack(
-                children: [
-                  // Card front
-                  Visibility(
-                    visible: displayFront,
-                    child: _CardFront(
-                      cardData: widget.cardData,
-                      isBlack: widget.isBlack,
-                      isSelected: widget.isSelected,
-                      faceDown: widget.faceDown,
-                      animate: widget.animate,
-                      animationValue: animationValue,
-                    ),
-                  ),
-
-                  // Card back
-                  Visibility(
-                    visible: displayBack,
-                    child: _CardBack(
-                      isSelected: widget.isSelected,
-                      animate: widget.animate,
-                      animationValue: animationValue,
-                    ),
-                  ),
-                ],
+              child: Transform( // Apply flip rotation
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001) // Perspective for Y rotation
+                  ..rotateY(flipAngle),   // Rotate the card
+                child: showFrontContent
+                    ? _CardFront(
+                        cardData: widget.cardData,
+                        isBlack: widget.isBlack,
+                        isSelected: widget.isSelected,
+                      )
+                    : Transform(
+                        // Counter-rotate the back content so it's not mirrored
+                        alignment: Alignment.center,
+                        transform: Matrix4.identity()..rotateY(math.pi),
+                        child: _CardBack(
+                          isSelected: widget.isSelected,
+                          isOriginalCardBlack: widget.isBlack, // Pass original card type
+                        ),
+                      ),
               ),
             ),
           );
@@ -212,54 +181,37 @@ class _CardFront extends StatelessWidget {
   final Map<dynamic, dynamic> cardData;
   final bool isBlack;
   final bool isSelected;
-  final bool faceDown;
-  final bool animate;
-  final double animationValue;
+  // Removed faceDown, animate, animationValue as they are handled by parent
 
   const _CardFront({
     required this.cardData,
     required this.isBlack,
     required this.isSelected,
-    required this.faceDown,
-    required this.animate,
-    required this.animationValue,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Only apply rotation if animating and faceDown
-    final rotation =
-        (animate && faceDown)
-            ? math.min(math.pi / 2, animationValue * math.pi)
-            : 0.0;
-
-    return Transform(
-      alignment: Alignment.center,
-      transform:
-          Matrix4.identity()
-            ..setEntry(3, 2, 0.001) // Perspective
-            ..rotateY(rotation),
-      child: Container(
-        width: 160,
-        height: 220,
-        margin: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          color: isBlack ? Colors.black : Colors.white,
-          borderRadius: BorderRadius.circular(12.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 5.0,
-              offset: const Offset(2, 2),
-            ),
-          ],
-          border: Border.all(
-            color: isSelected ? Colors.yellow : Colors.grey[300]!,
-            width: isSelected ? 2.0 : 1.0,
+    // Removed internal Transform for Y rotation
+    return Container(
+      width: 160,
+      height: 220,
+      margin: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: isBlack ? Colors.black : Colors.white,
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 5.0,
+            offset: const Offset(2, 2),
           ),
+        ],
+        border: Border.all(
+          color: isSelected ? Colors.yellow : Colors.grey[300]!,
+          width: isSelected ? 2.0 : 1.0,
         ),
-        child: _buildCardContent(),
       ),
+      child: _buildCardContent(),
     );
   }
 
@@ -335,90 +287,79 @@ class _CardFront extends StatelessWidget {
 
 class _CardBack extends StatelessWidget {
   final bool isSelected;
-  final bool animate;
-  final double animationValue;
+  final bool isOriginalCardBlack; // New property
+  // Removed animate, animationValue
 
   const _CardBack({
     required this.isSelected,
-    required this.animate,
-    required this.animationValue,
+    required this.isOriginalCardBlack, // Added to constructor
   });
 
   @override
   Widget build(BuildContext context) {
-    // Calculate the rotation for back side
-    final progress = (animationValue - 0.5) * 2; // 0 to 1 during second half
-    final rotation =
-        animate
-            ?
-            // Animated rotation for back side
-            math.pi + math.min(math.pi / 2, progress * math.pi)
-            :
-            // Static rotation for non-animated back
-            math.pi;
+    final bool useBlackText = isOriginalCardBlack; // If original is black, back is white, text is black
+    final Color backgroundColor = isOriginalCardBlack ? Colors.white : Colors.black;
+    final Color textColor = useBlackText ? Colors.black : Colors.white;
+    final Color borderColor = isSelected ? Colors.yellow : Colors.grey[isOriginalCardBlack ? 700 : 300]!;
+    final Color dividerColor = useBlackText ? Colors.black.withOpacity(0.5) : Colors.white.withOpacity(0.5);
 
-    return Transform(
-      alignment: Alignment.center,
-      transform:
-          Matrix4.identity()
-            ..setEntry(3, 2, 0.001) // Perspective
-            ..rotateY(rotation),
-      child: Container(
-        width: 160,
-        height: 220,
-        margin: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          color: Colors.grey[800],
-          borderRadius: BorderRadius.circular(12.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 5.0,
-              offset: const Offset(2, 2),
-            ),
-          ],
-          border: Border.all(
-            color: isSelected ? Colors.yellow : Colors.grey[300]!,
-            width: isSelected ? 2.0 : 1.0,
+
+    // Removed internal Transform for Y rotation
+    return Container(
+      width: 160,
+      height: 220,
+      margin: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: backgroundColor, // Dynamic background color
+        borderRadius: BorderRadius.circular(12.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 5.0,
+            offset: const Offset(2, 2),
           ),
+        ],
+        border: Border.all(
+          color: borderColor, // Dynamic border color
+          width: isSelected ? 2.0 : 1.0,
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10.0),
-            border: Border.all(color: Colors.grey[500]!, width: 0.5),
-          ),
-          margin: const EdgeInsets.all(15),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'UNHINGED',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
-                  ),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10.0),
+          border: Border.all(color: Colors.grey[useBlackText ? 400 : 600]!, width: 0.5), // Adjusted border for visibility
+        ),
+        margin: const EdgeInsets.all(15),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'UNHINGED',
+                style: TextStyle(
+                  color: textColor, // Dynamic text color
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  height: 2,
-                  width: 80,
-                  color: Colors.white.withOpacity(0.5),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                height: 2,
+                width: 80,
+                color: dividerColor, // Dynamic divider color
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'CARDS',
+                style: TextStyle(
+                  color: textColor, // Dynamic text color
+                  fontSize: 16.0,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2.0,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  'CARDS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2.0,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
