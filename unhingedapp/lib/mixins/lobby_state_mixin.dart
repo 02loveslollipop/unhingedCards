@@ -100,21 +100,20 @@ mixin LobbyStateMixin<T extends StatefulWidget> on State<T> {
   void disposeLobbySubscription() {
     roomSubscription?.cancel();
   }
-
   Widget buildRoomIdWidget(BuildContext context, String currentRoomId) {
     return Positioned(
       bottom: 10,
       right: 10,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.grey[700]!, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.3),
-              blurRadius: 6,
+              blurRadius: 4,
               offset: const Offset(0, 2),
             ),
           ],
@@ -128,21 +127,21 @@ mixin LobbyStateMixin<T extends StatefulWidget> on State<T> {
               children: [
                 const Text(
                   'Room ID',
-                  style: TextStyle(color: Colors.grey, fontSize: 10),
+                  style: TextStyle(color: Colors.grey, fontSize: 8),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   currentRoomId,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.3,
                   ),
                 ),
               ],
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Material(
               color: Colors.transparent,
               child: InkWell(
@@ -156,25 +155,25 @@ mixin LobbyStateMixin<T extends StatefulWidget> on State<T> {
                     ),
                   );
                 },
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: 6,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.copy, color: Colors.white, size: 16),
-                      SizedBox(width: 4),
+                      Icon(Icons.copy, color: Colors.white, size: 12),
+                      SizedBox(width: 3),
                       Text(
                         'Copy',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

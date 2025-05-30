@@ -20,11 +20,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Unhinged Cards',
-      theme: ThemeData(
+      title: 'Unhinged Cards',      theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
         cardColor: Colors.grey[850], // Darker cards
+        useMaterial3: true, // Ensure Material 3 icons are used
+        iconTheme: const IconThemeData(
+          color: Colors.white, // Default icon color
+          size: 24.0, // Default icon size
+        ),
         textTheme: GoogleFonts.latoTextTheme(
           ThemeData.dark().textTheme, // Use Lato font with dark theme defaults
         ),
