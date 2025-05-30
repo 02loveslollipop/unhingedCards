@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'game_card.dart';
 
 class BlackCardDeck extends StatefulWidget {
   final Function() on_card_drawn;
@@ -9,12 +8,12 @@ class BlackCardDeck extends StatefulWidget {
   final int timer_duration;
 
   const BlackCardDeck({
-    Key? key,
+    super.key,
     required this.on_card_drawn,
     this.is_interactive = true,
     this.has_animation = true,
     this.timer_duration = 5,
-  }) : super(key: key);
+  });
 
   @override
   State<BlackCardDeck> createState() => _BlackCardDeckState();

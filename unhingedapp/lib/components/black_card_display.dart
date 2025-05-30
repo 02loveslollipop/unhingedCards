@@ -6,10 +6,10 @@ class BlackCardDisplay extends StatelessWidget {
   final Function()? on_reveal_complete;
 
   const BlackCardDisplay({
-    Key? key,
+    super.key,
     required this.card_data,
     this.on_reveal_complete,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +47,8 @@ class BlackCardDisplay extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Container(
+          SizedBox(
             width: 176, // Card width + margin (160 + 16)
-            height: 236, // Card height + margin (220 + 16)
             child: GameCard(
               cardData: card_data!,
               isBlack: true,

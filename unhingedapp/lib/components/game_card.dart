@@ -10,14 +10,14 @@ class GameCard extends StatefulWidget {
   final bool faceDown;
 
   const GameCard({
-    Key? key,
+    super.key,
     required this.cardData,
     required this.isBlack,
     this.isSelected = false,
     this.onTap,
     this.animate = false,
     this.faceDown = false,
-  }) : super(key: key);
+  });
 
   @override
   State<GameCard> createState() => _GameCardState();

@@ -8,14 +8,14 @@ import '../components/card_submissions.dart';
 import '../components/leaderboard.dart';
 import '../components/loading_animation.dart';
 import '../components/result_animation.dart';
+import '../components/all_cards_reveal.dart';
 import '../services/game_service.dart';
 
 class GameScreen extends StatefulWidget {
   final String roomId;
   final String playerId;
 
-  const GameScreen({Key? key, required this.roomId, required this.playerId})
-    : super(key: key);
+  const GameScreen({super.key, required this.roomId, required this.playerId});
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -28,6 +28,7 @@ class _GameScreenState extends State<GameScreen> {
   late StreamSubscription<DatabaseEvent> _black_card_subscription;
   late StreamSubscription<DatabaseEvent> _player_hand_subscription;
   late StreamSubscription<DatabaseEvent> _submissions_subscription;
+  late StreamSubscription<DatabaseEvent> _round_submissions_for_reveal_subscription; // New Subscription
   late StreamSubscription<DatabaseEvent> _room_subscription;
 
   // Game state
@@ -36,6 +37,7 @@ class _GameScreenState extends State<GameScreen> {
   Map<dynamic, dynamic>? _current_black_card;
   List<Map<String, dynamic>> _player_hand = [];
   Map<String, List<Map<String, dynamic>>> _player_submissions = {};
+  Map<String, List<Map<String, dynamic>>> _round_reveal_submissions = {}; // This will now be populated by its own listener
   List<Map<String, dynamic>> _selected_cards = [];
   Map<dynamic, dynamic> _winning_submission = {};
   bool _is_card_czar = false;
@@ -104,10 +106,10 @@ class _GameScreenState extends State<GameScreen> {
         .listen_to_current_black_card()
         .listen((event) {
           if (event.snapshot.exists) {
-            final black_card = event.snapshot.value as Map?;
-            if (black_card != null) {
+            final blackCard = event.snapshot.value as Map?;
+            if (blackCard != null) {
               setState(() {
-                _current_black_card = black_card;
+                _current_black_card = blackCard;
               });
             }
           } else {
@@ -162,7 +164,7 @@ class _GameScreenState extends State<GameScreen> {
         if (submissions != null) {
           // Log detailed information about submissions for debugging
           if (_is_card_czar) {
-            print('📝 CARD CZAR RECEIVED SUBMISSIONS EVENT:');
+            print('📝 CARD CZAR RECEIVED SUBMISSIONS EVENT (from main submissions):');
             print('Current game state: $_game_state');
             print('Submissions data: ${submissions.toString()}');
             print('Number of submissions: ${submissions.length}');
@@ -215,9 +217,69 @@ class _GameScreenState extends State<GameScreen> {
           });
         }
       } else {
+        // This else block might be hit when submissions are cleared after a round.
+        // We don't want to clear _player_submissions here if _round_reveal_submissions is being used.
+        // If _game_state is 'showing_all_cards' or 'showing_round_result', preserve _player_submissions
+        // as it might still be needed by the Czar for context, though _round_reveal_submissions is primary for display.
+        if (_game_state != 'showing_all_cards' && _game_state != 'showing_round_result') {
+          setState(() {
+            _player_submissions = {};
+            // Only reset _has_submitted_cards if the game is not in a reveal state
+            // and submissions are truly cleared (e.g., new round starting).
+            if (_game_state != 'czar_selecting_winner') { // Avoid resetting if czar is still selecting
+                 _has_submitted_cards = false;
+            }
+          });
+        }
+      }
+    });
+
+    // Listen to round submissions for reveal (New Listener Setup)
+    _round_submissions_for_reveal_subscription = 
+        _game_service.listen_to_round_submissions_for_reveal().listen((event) {
+      // ADD LOGGING FOR NON-CZARS
+      if (!_is_card_czar) {
+        print('[Player ${widget.playerId}] NON-CZAR: Received event for _round_submissions_for_reveal_subscription.');
+        print('  Snapshot exists: ${event.snapshot.exists}');
+        if (event.snapshot.exists) {
+          print('  Snapshot value: ${event.snapshot.value}');
+        }
+      }
+
+      if (event.snapshot.exists) {
+        final submissionsData = event.snapshot.value as Map?; // Changed from 'submissions' to 'submissionsData' to avoid conflict
+        if (submissionsData != null) {
+          final formattedSubmissions = <String, List<Map<String, dynamic>>>{};
+          submissionsData.forEach((playerId, cards) { // Ensure correct iteration
+            if (cards is List) {
+              formattedSubmissions[playerId.toString()] = List<Map<String, dynamic>>.from(
+                cards.map((card) => Map<String, dynamic>.from(card as Map)),
+              );
+            }
+          });
+          // ADD LOGGING FOR NON-CZARS before setState
+          if (!_is_card_czar) {
+            print('[Player ${widget.playerId}] NON-CZAR: Updating _round_reveal_submissions with: $formattedSubmissions');
+          }
+          setState(() {
+            _round_reveal_submissions = formattedSubmissions;
+          });
+        } else {
+          // ADD LOGGING FOR NON-CZARS if data is null
+          if (!_is_card_czar) {
+            print('[Player ${widget.playerId}] NON-CZAR: roundSubmissionsForReveal data is null. Setting _round_reveal_submissions to empty.');
+          }
+          setState(() {
+            _round_reveal_submissions = {};
+          });
+        }
+      } else {
+        // ADD LOGGING FOR NON-CZARS if snapshot doesn't exist
+        if (!_is_card_czar) {
+          print('[Player ${widget.playerId}] NON-CZAR: roundSubmissionsForReveal snapshot does not exist. Setting _round_reveal_submissions to empty.');
+        }
         setState(() {
-          _player_submissions = {};
-          _has_submitted_cards = false;
+          _round_reveal_submissions = {};
         });
       }
     });
@@ -228,10 +290,10 @@ class _GameScreenState extends State<GameScreen> {
         .onValue
         .listen((event) {
           if (event.snapshot.exists) {
-            final winning_submission = event.snapshot.value as Map?;
-            if (winning_submission != null) {
+            final winningSubmission = event.snapshot.value as Map?;
+            if (winningSubmission != null) {
               setState(() {
-                _winning_submission = winning_submission;
+                _winning_submission = winningSubmission;
               });
             }
           } else {
@@ -242,8 +304,8 @@ class _GameScreenState extends State<GameScreen> {
         });
 
     // Initialize game if host
-    _game_service.is_current_player_host().then((is_host) {
-      if (is_host) {
+    _game_service.is_current_player_host().then((isHost) {
+      if (isHost) {
         _game_service.initialize_game();
       }
     });
@@ -293,10 +355,12 @@ class _GameScreenState extends State<GameScreen> {
         if (_is_host) {
           _check_all_players_submitted();
         }
+        break;      case 'czar_selecting_winner':
+        // No automatic action, waiting for Card Czar to select
         break;
 
-      case 'czar_selecting_winner':
-        // No automatic action, waiting for Card Czar to select
+      case 'showing_all_cards':
+        // No automatic action, waiting for timer to complete
         break;
 
       case 'showing_round_result':
@@ -317,37 +381,37 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _check_game_conditions() async {
     try {
       // Check if a player has enough points to win
-      final has_winner = await _game_service.check_winning_condition();
-      if (has_winner) {
+      final hasWinner = await _game_service.check_winning_condition();
+      if (hasWinner) {
         print('Game over: A player has reached the winning points');
         await _game_service.update_game_state('game_over');
         return;
       }
 
       // Check if black deck has cards
-      final black_deck_has_cards =
+      final blackDeckHasCards =
           await _game_service.check_black_cards_available();
-      if (!black_deck_has_cards) {
+      if (!blackDeckHasCards) {
         print('Game over: No black cards available');
         await _game_service.update_game_state('game_over');
         return;
       }
 
       // Check if white deck has enough cards
-      final white_deck_has_enough_cards =
+      final whiteDeckHasEnoughCards =
           await _game_service.check_white_cards_available_for_players();
-      if (!white_deck_has_enough_cards) {
+      if (!whiteDeckHasEnoughCards) {
         print('Game over: Not enough white cards available');
         await _game_service.update_game_state('game_over');
         return;
       }
 
       // Check if all players have cards
-      final all_players_have_cards =
+      final allPlayersHaveCards =
           await _game_service.check_all_players_have_cards();
 
       // If any player doesn't have cards, shuffle the white deck and draw cards
-      if (!all_players_have_cards) {
+      if (!allPlayersHaveCards) {
         print('Some players need cards, shuffling deck and drawing cards');
         await _game_service.shuffle_white_deck();
 
@@ -355,10 +419,10 @@ class _GameScreenState extends State<GameScreen> {
         await _game_service.draw_cards_for_players();
 
         // Double-check that all players have cards now
-        final rechecked_all_players_have_cards =
+        final recheckedAllPlayersHaveCards =
             await _game_service.check_all_players_have_cards();
 
-        if (!rechecked_all_players_have_cards) {
+        if (!recheckedAllPlayersHaveCards) {
           // If we still don't have cards for everyone after trying to draw,
           // there's a more serious issue
           print(
@@ -420,8 +484,8 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     // First check immediately if all players have submitted
-    bool all_submitted = await _game_service.check_all_players_submitted();
-    if (all_submitted) {
+    bool allSubmitted = await _game_service.check_all_players_submitted();
+    if (allSubmitted) {
       print(
         '✅ All players have already submitted their cards. Moving to czar selection phase immediately.',
       );
@@ -444,7 +508,7 @@ class _GameScreenState extends State<GameScreen> {
       elapsedSeconds++;
 
       // Check if all non-czar players have submitted
-      final all_submitted = await _game_service.check_all_players_submitted();
+      final allSubmitted = await _game_service.check_all_players_submitted();
 
       // Also check if submissions match the number of non-czar players as a fallback
       final submissionsData = await _game_service.submissions_ref.get();
@@ -466,13 +530,13 @@ class _GameScreenState extends State<GameScreen> {
       }
 
       bool shouldMoveToNextState =
-          all_submitted ||
+          allSubmitted ||
           (submissionCount >= nonCzarCount && nonCzarCount > 0) ||
           elapsedSeconds >= maxWaitSeconds;
 
       if (shouldMoveToNextState) {
         String reason =
-            all_submitted
+            allSubmitted
                 ? 'all players submitted'
                 : (submissionCount >= nonCzarCount
                     ? 'submission count matches player count'
@@ -520,11 +584,11 @@ class _GameScreenState extends State<GameScreen> {
       if (_selected_cards.contains(card)) {
         _selected_cards.remove(card);
       } else {
-        final cards_to_submit = _current_black_card?['pick'] as int? ?? 1;
+        final cardsToSubmit = _current_black_card?['pick'] as int? ?? 1;
 
-        if (_selected_cards.length < cards_to_submit) {
+        if (_selected_cards.length < cardsToSubmit) {
           _selected_cards.add(card);
-        } else if (cards_to_submit == 1) {
+        } else if (cardsToSubmit == 1) {
           // If only one card required, replace the selected card
           _selected_cards = [card];
         }
@@ -540,10 +604,10 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    final cards_to_submit = _current_black_card?['pick'] as int? ?? 1;
-    if (_selected_cards.length != cards_to_submit) {
+    final cardsToSubmit = _current_black_card?['pick'] as int? ?? 1;
+    if (_selected_cards.length != cardsToSubmit) {
       print(
-        '⚠️ Not enough cards selected - have: ${_selected_cards.length}, need: $cards_to_submit',
+        '⚠️ Not enough cards selected - have: ${_selected_cards.length}, need: $cardsToSubmit',
       );
       return;
     }
@@ -623,17 +687,22 @@ class _GameScreenState extends State<GameScreen> {
     // If this player was the last to submit, the game service will handle the state transition
     // through the check_all_players_submitted method
   }
-
   Future<void> _select_winning_submission(
-    String player_id,
+    String playerId,
     List<Map<String, dynamic>> cards,
   ) async {
     if (!_is_card_czar || _game_state != 'czar_selecting_winner') {
       return;
     }
 
-    await _game_service.select_winner(player_id);
-    await _game_service.update_game_state('showing_round_result');
+    // No longer need to manually copy submissions here, as _round_reveal_submissions is now populated by its own listener
+    // from 'roundSubmissionsForReveal' in Firebase, which GameService populates before clearing 'submissions'.
+
+    await _game_service.select_winner(playerId);
+    // _round_reveal_submissions will be updated by its listener when GameService updates 'roundSubmissionsForReveal'.
+    // The main 'submissions' node will be cleared by GameService, and _player_submissions will update via its listener.
+
+    await _game_service.update_game_state('showing_all_cards');
   }
 
   void _on_leaderboard_timeout() async {
@@ -796,14 +865,13 @@ class _GameScreenState extends State<GameScreen> {
       );
     }
   }
-
   Widget _build_showing_round_result() {
-    final String? winning_player_id =
+    final String? winningPlayerId =
         _winning_submission['playerId'] as String?;
-    final bool is_winner = winning_player_id == widget.playerId;
+    final bool isWinner = winningPlayerId == widget.playerId;
 
     return ResultAnimation(
-      is_winner: is_winner,
+      is_winner: isWinner,
       is_card_czar: _is_card_czar,
       on_animation_complete: () async {
         if (_is_host) {
@@ -922,6 +990,24 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget _build_showing_all_cards() {
+    return AllCardsReveal(
+      black_card: _current_black_card,
+      submissions: _round_reveal_submissions, // Use the copied submissions for reveal
+      players: _players,
+      winning_submission: _winning_submission,
+      on_reveal_complete: () async {
+        if (_is_host) {
+          // Optionally clear _round_reveal_submissions from state here if it's large and not needed
+          // setState(() {
+          //   _round_reveal_submissions = {};
+          // });
+          await _game_service.update_game_state('showing_round_result');
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -964,10 +1050,11 @@ class _GameScreenState extends State<GameScreen> {
         return _build_players_selecting_cards();
 
       case 'waiting_for_submissions':
-        return _build_waiting_for_submissions();
-
-      case 'czar_selecting_winner':
+        return _build_waiting_for_submissions();      case 'czar_selecting_winner':
         return _build_czar_selecting_winner();
+
+      case 'showing_all_cards':
+        return _build_showing_all_cards();
 
       case 'showing_round_result':
         return _build_showing_round_result();
@@ -981,7 +1068,7 @@ class _GameScreenState extends State<GameScreen> {
       default:
         return Center(
           child: Text(
-            '$_game_state',
+            _game_state,
             style: const TextStyle(color: Colors.white),
           ),
         );
@@ -989,7 +1076,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<bool> _on_will_pop() async {
-    final bool? should_pop = await showDialog<bool>(
+    final bool? shouldPop = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder:
@@ -1017,7 +1104,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
     );
 
-    return should_pop ?? false;
+    return shouldPop ?? false;
   }
 
   void _show_game_info() {
@@ -1062,6 +1149,7 @@ class _GameScreenState extends State<GameScreen> {
     _black_card_subscription.cancel();
     _player_hand_subscription.cancel();
     _submissions_subscription.cancel();
+    _round_submissions_for_reveal_subscription.cancel(); // Cancel new subscription
     _room_subscription.cancel();
     super.dispose();
   }

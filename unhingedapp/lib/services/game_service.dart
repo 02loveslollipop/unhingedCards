@@ -20,6 +20,7 @@ class GameService {
   DatabaseReference get player_hands_ref => room_ref.child('playerHands');
   DatabaseReference get player_hand_ref => player_hands_ref.child(player_id);
   DatabaseReference get submissions_ref => room_ref.child('submissions');
+  DatabaseReference get round_submissions_for_reveal_ref => room_ref.child('roundSubmissionsForReveal'); // New Ref
   DatabaseReference get winning_points_ref => room_ref.child('winningPoints');
   // Game state checks
   Future<bool> check_player_has_cards() async {
@@ -32,38 +33,38 @@ class GameService {
   }
 
   Future<bool> check_all_players_have_cards() async {
-    final players_snapshot = await players_ref.get();
-    if (!players_snapshot.exists) return false;
+    final playersSnapshot = await players_ref.get();
+    if (!playersSnapshot.exists) return false;
 
-    final players = players_snapshot.value as Map?;
+    final players = playersSnapshot.value as Map?;
     if (players == null || players.isEmpty) return false;
 
     // Check if any player has no cards
     for (final player_id in players.keys) {
       // First check the dedicated player hands location
-      final player_hand_snapshot =
+      final playerHandSnapshot =
           await player_hands_ref.child(player_id.toString()).get();
 
-      if (!player_hand_snapshot.exists ||
-          (player_hand_snapshot.value is List &&
-              (player_hand_snapshot.value as List).isEmpty)) {
+      if (!playerHandSnapshot.exists ||
+          (playerHandSnapshot.value is List &&
+              (playerHandSnapshot.value as List).isEmpty)) {
         // If no cards in dedicated location, check the player object's cards field
-        final player_cards_snapshot =
+        final playerCardsSnapshot =
             await players_ref.child(player_id.toString()).child('cards').get();
 
-        if (!player_cards_snapshot.exists ||
-            (player_cards_snapshot.value is List &&
-                (player_cards_snapshot.value as List).isEmpty)) {
+        if (!playerCardsSnapshot.exists ||
+            (playerCardsSnapshot.value is List &&
+                (playerCardsSnapshot.value as List).isEmpty)) {
           // Player has no cards in either location
           return false;
         }
 
         // If cards were found in player object but not in dedicated location, sync them
-        if (player_cards_snapshot.exists &&
-            player_cards_snapshot.value is List) {
+        if (playerCardsSnapshot.exists &&
+            playerCardsSnapshot.value is List) {
           await player_hands_ref
               .child(player_id.toString())
-              .set(player_cards_snapshot.value);
+              .set(playerCardsSnapshot.value);
         }
       }
     }
@@ -80,13 +81,13 @@ class GameService {
         await _initialize_card_decks();
 
         // Check again after initialization
-        final new_snapshot = await black_cards_ref.get();
-        if (!new_snapshot.exists) {
+        final newSnapshot = await black_cards_ref.get();
+        if (!newSnapshot.exists) {
           print('Failed to initialize black cards');
           return false;
         }
 
-        final cards = List<dynamic>.from(new_snapshot.value as List? ?? []);
+        final cards = List<dynamic>.from(newSnapshot.value as List? ?? []);
         return cards.isNotEmpty;
       }
 
@@ -97,9 +98,9 @@ class GameService {
         await _initialize_card_decks();
 
         // Check again after reinitialization
-        final new_snapshot = await black_cards_ref.get();
-        final new_cards = List<dynamic>.from(new_snapshot.value as List? ?? []);
-        return new_cards.isNotEmpty;
+        final newSnapshot = await black_cards_ref.get();
+        final newCards = List<dynamic>.from(newSnapshot.value as List? ?? []);
+        return newCards.isNotEmpty;
       }
 
       return cards.isNotEmpty;
@@ -111,49 +112,49 @@ class GameService {
 
   Future<bool> check_white_cards_available_for_players() async {
     try {
-      final players_snapshot = await players_ref.get();
-      final white_cards_snapshot = await white_cards_ref.get();
+      final playersSnapshot = await players_ref.get();
+      final whiteCardsSnapshot = await white_cards_ref.get();
 
-      if (!players_snapshot.exists) {
+      if (!playersSnapshot.exists) {
         print('No players found in check_white_cards_available_for_players');
         return false;
       }
 
-      if (!white_cards_snapshot.exists) {
+      if (!whiteCardsSnapshot.exists) {
         print('No white cards found, will attempt to initialize deck');
         // Try to initialize the decks if they don't exist
         await _initialize_card_decks();
 
         // Check again after initialization
-        final new_white_cards_snapshot = await white_cards_ref.get();
-        if (!new_white_cards_snapshot.exists) {
+        final newWhiteCardsSnapshot = await white_cards_ref.get();
+        if (!newWhiteCardsSnapshot.exists) {
           print('Still no white cards after initialization');
           return false;
         }
 
         // Continue with the newly initialized deck
-        final white_cards = List<dynamic>.from(
-          new_white_cards_snapshot.value as List? ?? [],
+        final whiteCards = List<dynamic>.from(
+          newWhiteCardsSnapshot.value as List? ?? [],
         );
 
-        final players_count = (players_snapshot.value as Map?)?.length ?? 0;
+        final playersCount = (playersSnapshot.value as Map?)?.length ?? 0;
 
-        if (players_count == 0) {
+        if (playersCount == 0) {
           print('No players found after recheck');
           return false;
         }
 
         // We need at least 1 card per player at minimum to continue
-        return white_cards.isNotEmpty;
+        return whiteCards.isNotEmpty;
       }
 
       // Regular check if both players and white cards exist
-      final players_count = (players_snapshot.value as Map?)?.length ?? 0;
-      final white_cards = List<dynamic>.from(
-        white_cards_snapshot.value as List? ?? [],
+      final playersCount = (playersSnapshot.value as Map?)?.length ?? 0;
+      final whiteCards = List<dynamic>.from(
+        whiteCardsSnapshot.value as List? ?? [],
       );
 
-      if (players_count == 0) {
+      if (playersCount == 0) {
         print('No players found in check (players_count = 0)');
         return false;
       }
@@ -161,9 +162,9 @@ class GameService {
       // Ideally we want 4 cards per player, but in a pinch we can continue with fewer
       // For now, let's just make sure we have some cards
       print(
-        'White cards available: ${white_cards.length}, Players: $players_count',
+        'White cards available: ${whiteCards.length}, Players: $playersCount',
       );
-      return white_cards.isNotEmpty;
+      return whiteCards.isNotEmpty;
     } catch (e) {
       print('Error in check_white_cards_available_for_players: $e');
       return false;
@@ -172,18 +173,18 @@ class GameService {
 
   Future<bool> check_winning_condition() async {
     try {
-      final winning_points_snapshot = await winning_points_ref.get();
-      final winning_points = (winning_points_snapshot.value as int?) ?? 10;
+      final winningPointsSnapshot = await winning_points_ref.get();
+      final winningPoints = (winningPointsSnapshot.value as int?) ?? 10;
 
-      print('Checking for winning condition (winning points: $winning_points)');
+      print('Checking for winning condition (winning points: $winningPoints)');
 
-      final players_snapshot = await players_ref.get();
-      if (!players_snapshot.exists) {
+      final playersSnapshot = await players_ref.get();
+      if (!playersSnapshot.exists) {
         print('No players found in check_winning_condition');
         return false;
       }
 
-      final players = players_snapshot.value as Map?;
+      final players = playersSnapshot.value as Map?;
       if (players == null || players.isEmpty) {
         print('Players map is null or empty');
         return false;
@@ -192,22 +193,22 @@ class GameService {
       // Debug - print all player scores
       print('Current player scores:');
       for (final entry in players.entries) {
-        final player_id = entry.key;
+        final playerId = entry.key;
         final player = entry.value;
         if (player is Map && player.containsKey('score')) {
           final score = player['score'] as int? ?? 0;
-          print('Player $player_id: $score points');
+          print('Player $playerId: $score points');
         }
       }
 
       // Check if any player has reached winning points
       for (final entry in players.entries) {
-        final player_id = entry.key.toString();
+        final playerId = entry.key.toString();
         final player = entry.value;
         if (player is Map && player.containsKey('score')) {
           final score = player['score'] as int? ?? 0;
-          if (score >= winning_points) {
-            print('Player $player_id has reached winning score: $score');
+          if (score >= winningPoints) {
+            print('Player $playerId has reached winning score: $score');
 
             // Reset any previous winner flags
             for (final p in players.entries) {
@@ -217,10 +218,10 @@ class GameService {
             }
 
             // Mark this player as the winner
-            await players_ref.child(player_id).update({'isWinner': true});
+            await players_ref.child(playerId).update({'isWinner': true});
 
             // Also store the winner ID at the room level for easy access
-            await room_ref.child('winnerId').set(player_id);
+            await room_ref.child('winnerId').set(playerId);
 
             return true;
           }
@@ -246,130 +247,130 @@ class GameService {
 
   Future<void> draw_cards_for_players() async {
     try {
-      final players_snapshot = await players_ref.get();
-      final white_cards_snapshot = await white_cards_ref.get();
+      final playersSnapshot = await players_ref.get();
+      final whiteCardsSnapshot = await white_cards_ref.get();
 
-      if (!players_snapshot.exists || !white_cards_snapshot.exists) {
+      if (!playersSnapshot.exists || !whiteCardsSnapshot.exists) {
         // No players or no cards
         print('No players or no white cards available');
         return;
       }
 
-      final players = players_snapshot.value as Map?;
-      List<dynamic> white_cards = List<dynamic>.from(
-        white_cards_snapshot.value as List? ?? [],
+      final players = playersSnapshot.value as Map?;
+      List<dynamic> whiteCards = List<dynamic>.from(
+        whiteCardsSnapshot.value as List? ?? [],
       );
 
-      if (players == null || players.isEmpty || white_cards.isEmpty) {
+      if (players == null || players.isEmpty || whiteCards.isEmpty) {
         print('No players, or empty players map, or no white cards');
         return;
       }
 
       // Calculate how many cards to draw for each player
-      final cards_per_player = 4; // Each player gets 4 cards
+      final cardsPerPlayer = 4; // Each player gets 4 cards
 
       // Check if we have enough cards for all players, if not, reinitialize cards
-      int total_cards_needed = 0;
-      final player_needs = <String, int>{};
+      int totalCardsNeeded = 0;
+      final playerNeeds = <String, int>{};
 
       // First calculate how many cards each player needs
       for (final player_id in players.keys) {
-        final player_id_str = player_id.toString();
-        final player_hand_ref = player_hands_ref.child(player_id_str);
+        final playerIdStr = player_id.toString();
+        final playerHandRef = player_hands_ref.child(playerIdStr);
 
         // Get current hand from dedicated location
-        final hand_snapshot = await player_hand_ref.get();
-        List<dynamic> current_hand = [];
+        final handSnapshot = await playerHandRef.get();
+        List<dynamic> currentHand = [];
 
-        if (hand_snapshot.exists && hand_snapshot.value is List) {
-          current_hand = List<dynamic>.from(hand_snapshot.value as List);
+        if (handSnapshot.exists && handSnapshot.value is List) {
+          currentHand = List<dynamic>.from(handSnapshot.value as List);
         } else {
           // Check player object's cards field as fallback
-          final player_cards_snapshot =
-              await players_ref.child(player_id_str).child('cards').get();
+          final playerCardsSnapshot =
+              await players_ref.child(playerIdStr).child('cards').get();
 
-          if (player_cards_snapshot.exists &&
-              player_cards_snapshot.value is List) {
-            current_hand = List<dynamic>.from(
-              player_cards_snapshot.value as List,
+          if (playerCardsSnapshot.exists &&
+              playerCardsSnapshot.value is List) {
+            currentHand = List<dynamic>.from(
+              playerCardsSnapshot.value as List,
             );
             // Sync cards to the dedicated location
-            await player_hand_ref.set(current_hand);
+            await playerHandRef.set(currentHand);
           }
         }
 
-        final cards_needed = cards_per_player - current_hand.length;
-        if (cards_needed > 0) {
-          player_needs[player_id_str] = cards_needed;
-          total_cards_needed += cards_needed;
+        final cardsNeeded = cardsPerPlayer - currentHand.length;
+        if (cardsNeeded > 0) {
+          playerNeeds[playerIdStr] = cardsNeeded;
+          totalCardsNeeded += cardsNeeded;
         }
       }
 
       // If we need more cards than are available, reinitialize the deck
-      if (total_cards_needed > 0 && total_cards_needed > white_cards.length) {
+      if (totalCardsNeeded > 0 && totalCardsNeeded > whiteCards.length) {
         print(
-          'Not enough white cards (need $total_cards_needed, have ${white_cards.length}). Reinitializing deck.',
+          'Not enough white cards (need $totalCardsNeeded, have ${whiteCards.length}). Reinitializing deck.',
         );
         await _initialize_card_decks();
 
         // Get the updated deck
-        final new_white_cards_snapshot = await white_cards_ref.get();
-        if (new_white_cards_snapshot.exists) {
-          white_cards = List<dynamic>.from(
-            new_white_cards_snapshot.value as List? ?? [],
+        final newWhiteCardsSnapshot = await white_cards_ref.get();
+        if (newWhiteCardsSnapshot.exists) {
+          whiteCards = List<dynamic>.from(
+            newWhiteCardsSnapshot.value as List? ?? [],
           );
           // Shuffle the newly initialized deck
-          white_cards.shuffle();
-          await white_cards_ref.set(white_cards);
+          whiteCards.shuffle();
+          await white_cards_ref.set(whiteCards);
         }
       }
 
       // Now distribute cards to players who need them
-      for (final entry in player_needs.entries) {
-        final player_id_str = entry.key;
-        final cards_needed = entry.value;
+      for (final entry in playerNeeds.entries) {
+        final playerIdStr = entry.key;
+        final cardsNeeded = entry.value;
 
-        if (cards_needed <= 0 || white_cards.isEmpty) {
+        if (cardsNeeded <= 0 || whiteCards.isEmpty) {
           continue; // Skip if player doesn't need cards or no cards left
         }
 
-        final player_hand_ref = player_hands_ref.child(player_id_str);
+        final playerHandRef = player_hands_ref.child(playerIdStr);
 
         // Get current hand again (it might have changed)
-        final hand_snapshot = await player_hand_ref.get();
-        List<dynamic> current_hand = [];
+        final handSnapshot = await playerHandRef.get();
+        List<dynamic> currentHand = [];
 
-        if (hand_snapshot.exists && hand_snapshot.value is List) {
-          current_hand = List<dynamic>.from(hand_snapshot.value as List);
+        if (handSnapshot.exists && handSnapshot.value is List) {
+          currentHand = List<dynamic>.from(handSnapshot.value as List);
         }
 
         // Draw cards for this player (up to cards_needed or what's available)
-        final cards_to_draw =
-            white_cards.length < cards_needed
-                ? white_cards.length
-                : cards_needed;
+        final cardsToDraw =
+            whiteCards.length < cardsNeeded
+                ? whiteCards.length
+                : cardsNeeded;
 
-        if (cards_to_draw > 0) {
-          final drawn_cards = white_cards.sublist(0, cards_to_draw);
-          white_cards = white_cards.sublist(cards_to_draw);
+        if (cardsToDraw > 0) {
+          final drawnCards = whiteCards.sublist(0, cardsToDraw);
+          whiteCards = whiteCards.sublist(cardsToDraw);
 
           // Add drawn cards to player's hand
-          current_hand.addAll(drawn_cards);
-          await player_hand_ref.set(current_hand);
+          currentHand.addAll(drawnCards);
+          await playerHandRef.set(currentHand);
 
           // Also update the player's cards field directly in the player object for faster access
           await players_ref
-              .child(player_id_str)
+              .child(playerIdStr)
               .child('cards')
-              .set(current_hand);
+              .set(currentHand);
 
-          print('Drew $cards_to_draw cards for player $player_id_str');
+          print('Drew $cardsToDraw cards for player $playerIdStr');
         }
       }
 
       // Update white cards deck
-      await white_cards_ref.set(white_cards);
-      print('Updated white card deck, ${white_cards.length} cards remaining');
+      await white_cards_ref.set(whiteCards);
+      print('Updated white card deck, ${whiteCards.length} cards remaining');
     } catch (e) {
       print('Error drawing cards for players: $e');
     }
@@ -377,22 +378,22 @@ class GameService {
 
   // Card Czar operations
   Future<void> select_card_czar() async {
-    final players_snapshot = await players_ref.get();
+    final playersSnapshot = await players_ref.get();
 
-    if (players_snapshot.exists) {
-      final players = players_snapshot.value as Map?;
+    if (playersSnapshot.exists) {
+      final players = playersSnapshot.value as Map?;
 
       if (players != null && players.isNotEmpty) {
         // Get a random player ID for the Card Czar
-        final player_ids = players.keys.toList();
-        player_ids.shuffle();
-        final card_czar_id = player_ids.first;
+        final playerIds = players.keys.toList();
+        playerIds.shuffle();
+        final cardCzarId = playerIds.first;
 
         // Update all players to set the Card Czar
-        for (final player_id in player_ids) {
-          final is_card_czar = player_id == card_czar_id;
+        for (final player_id in playerIds) {
+          final isCardCzar = player_id == cardCzarId;
           await players_ref.child(player_id.toString()).update({
-            'isCardCzar': is_card_czar,
+            'isCardCzar': isCardCzar,
           });
         }
       }
@@ -400,31 +401,31 @@ class GameService {
   }
 
   Future<void> draw_black_card() async {
-    final black_cards_snapshot = await black_cards_ref.get();
+    final blackCardsSnapshot = await black_cards_ref.get();
 
-    if (black_cards_snapshot.exists) {
-      final black_cards = List<dynamic>.from(
-        black_cards_snapshot.value as List? ?? [],
+    if (blackCardsSnapshot.exists) {
+      final blackCards = List<dynamic>.from(
+        blackCardsSnapshot.value as List? ?? [],
       );
 
-      if (black_cards.isNotEmpty) {
+      if (blackCards.isNotEmpty) {
         // Draw a random black card (or take the first one)
-        final card = black_cards.removeAt(0);
+        final card = blackCards.removeAt(0);
 
         // Set as current black card
         await current_black_card_ref.set(card);
 
         // Update black cards deck
-        await black_cards_ref.set(black_cards);
+        await black_cards_ref.set(blackCards);
       }
     }
   } // Player submissions
 
-  Future<void> submit_white_cards(List<dynamic> card_ids) async {
+  Future<void> submit_white_cards(List<dynamic> cardIds) async {
     print('🎲 Player $player_id submitting cards to the game');
 
     // Submit the selected cards
-    await submissions_ref.child(player_id).set(card_ids);
+    await submissions_ref.child(player_id).set(cardIds);
     print('Cards added to submissions database');
 
     // Mark the player as having submitted cards
@@ -432,13 +433,13 @@ class GameService {
     print('Player marked as having submitted cards');
 
     // Remove submitted cards from player's hand
-    final hand_snapshot = await player_hand_ref.get();
-    if (hand_snapshot.exists) {
-      final hand = List<dynamic>.from(hand_snapshot.value as List? ?? []);
+    final handSnapshot = await player_hand_ref.get();
+    if (handSnapshot.exists) {
+      final hand = List<dynamic>.from(handSnapshot.value as List? ?? []);
 
       // Remove submitted cards
       hand.removeWhere(
-        (card) => card_ids.any(
+        (card) => cardIds.any(
           (id) => card is Map && id is Map && card['id'] == id['id'],
         ),
       );
@@ -453,9 +454,9 @@ class GameService {
 
     // Get the card czar ID for comparison
     String? cardCzarId;
-    final players_snapshot = await players_ref.get();
-    if (players_snapshot.exists) {
-      final players = players_snapshot.value as Map?;
+    final playersSnapshot = await players_ref.get();
+    if (playersSnapshot.exists) {
+      final players = playersSnapshot.value as Map?;
       if (players != null) {
         for (final entry in players.entries) {
           if (entry.value is Map && entry.value['isCardCzar'] == true) {
@@ -469,27 +470,27 @@ class GameService {
 
     // Check if this was the last submission needed
     print('Checking if all players have submitted cards...');
-    final all_players_submitted = await check_all_players_submitted();
-    if (all_players_submitted) {
+    final allPlayersSubmitted = await check_all_players_submitted();
+    if (allPlayersSubmitted) {
       print(
         '🏆 ALL PLAYERS HAVE SUBMITTED! This was the last submission needed.',
       );
 
       // Get current game state to see if it needs to be updated
-      final game_state_snapshot = await game_state_ref.get();
-      final current_game_state = game_state_snapshot.value as String?;
+      final gameStateSnapshot = await game_state_ref.get();
+      final currentGameState = gameStateSnapshot.value as String?;
 
       // If we're still in players_selecting_cards or waiting_for_submissions, update the state
-      if (current_game_state == 'players_selecting_cards' ||
-          current_game_state == 'waiting_for_submissions') {
+      if (currentGameState == 'players_selecting_cards' ||
+          currentGameState == 'waiting_for_submissions') {
         print(
-          'Game is still in $current_game_state state - updating to czar_selecting_winner',
+          'Game is still in $currentGameState state - updating to czar_selecting_winner',
         );
         await update_game_state('czar_selecting_winner');
         print('Game state updated to czar_selecting_winner');
       } else {
         print(
-          'Game is already in $current_game_state state - no update needed',
+          'Game is already in $currentGameState state - no update needed',
         );
       }
     } else {
@@ -498,9 +499,9 @@ class GameService {
       );
 
       // Log current submissions count
-      final submissions_snapshot = await submissions_ref.get();
-      if (submissions_snapshot.exists) {
-        final submissions = submissions_snapshot.value as Map?;
+      final submissionsSnapshot = await submissions_ref.get();
+      if (submissionsSnapshot.exists) {
+        final submissions = submissionsSnapshot.value as Map?;
         if (submissions != null) {
           print('Current submission count: ${submissions.length}');
         }
@@ -512,70 +513,70 @@ class GameService {
     print(
       '🔍 In check_all_players_submitted - checking if all players have submitted cards',
     );
-    final players_snapshot = await players_ref.get();
-    final submissions_snapshot = await submissions_ref.get();
+    final playersSnapshot = await players_ref.get();
+    final submissionsSnapshot = await submissions_ref.get();
 
-    if (players_snapshot.exists) {
-      final players = players_snapshot.value as Map?;
+    if (playersSnapshot.exists) {
+      final players = playersSnapshot.value as Map?;
       final submissions =
-          submissions_snapshot.exists
-              ? (submissions_snapshot.value as Map?)
+          submissionsSnapshot.exists
+              ? (submissionsSnapshot.value as Map?)
               : null;
 
       if (players != null) {
         // Count non-Czar players and check if they've all submitted
-        int non_czar_count = 0;
-        int submitted_count = 0;
+        int nonCzarCount = 0;
+        int submittedCount = 0;
 
         print('Players in the game:');
         for (final entry in players.entries) {
-          final player_id = entry.key.toString();
-          final player_data = entry.value;
-          if (player_data is Map) {
-            final isCardCzar = player_data['isCardCzar'] == true;
-            final hasSubmitted = player_data['hasSubmitted'] == true;
+          final playerId = entry.key.toString();
+          final playerData = entry.value;
+          if (playerData is Map) {
+            final isCardCzar = playerData['isCardCzar'] == true;
+            final hasSubmitted = playerData['hasSubmitted'] == true;
             final hasSubmissionInDb =
-                submissions != null && submissions.containsKey(player_id);
+                submissions != null && submissions.containsKey(playerId);
 
             print(
-              'Player $player_id: Card Czar: $isCardCzar, Has submitted flag: $hasSubmitted, Has submission in DB: $hasSubmissionInDb',
+              'Player $playerId: Card Czar: $isCardCzar, Has submitted flag: $hasSubmitted, Has submission in DB: $hasSubmissionInDb',
             );
 
             // Skip the Card Czar
             if (isCardCzar) {
-              print('Player $player_id is Card Czar, skipping from count');
+              print('Player $playerId is Card Czar, skipping from count');
               continue;
             }
 
-            non_czar_count++;
+            nonCzarCount++;
 
             // Check both the player's hasSubmitted flag and if they have cards in the submissions
             bool playerHasSubmitted = hasSubmitted;
             bool playerHasSubmissionCards = hasSubmissionInDb;
 
             if (playerHasSubmitted || playerHasSubmissionCards) {
-              submitted_count++;
+              submittedCount++;
               print(
-                'Player $player_id has submitted their cards (flag: $playerHasSubmitted, DB: $playerHasSubmissionCards)',
+                'Player $playerId has submitted their cards (flag: $playerHasSubmitted, DB: $playerHasSubmissionCards)',
               );
 
               // If a player has submitted cards but doesn't have the flag set, update it
               if (!playerHasSubmitted && playerHasSubmissionCards) {
-                print('Updating hasSubmitted flag for player $player_id');
-                players_ref.child(player_id).update({'hasSubmitted': true});
+                print('Updating hasSubmitted flag for player $playerId');
+                players_ref.child(playerId).update({'hasSubmitted': true});
               }
             } else {
-              print('Player $player_id has NOT submitted their cards yet');
+              print('Player $playerId has NOT submitted their cards yet');
             }
           }
         }
 
         // Check if all non-Czar players have submitted
         print(
-          'Submitted count: $submitted_count / $non_czar_count non-czar players',
+          'Submitted count: $submittedCount / $nonCzarCount non-czar players',
         );
 
-        if (submitted_count >= non_czar_count && non_czar_count > 0) {
+        if (submittedCount >= nonCzarCount && nonCzarCount > 0) {
           print('✅ ALL PLAYERS HAVE SUBMITTED THEIR CARDS - returning true');
           return true;
         } else {
@@ -593,32 +594,46 @@ class GameService {
   }
 
   // Winner selection
-  Future<void> select_winner(String winner_id) async {
-    // Update the winner's score
-    final winner_ref = players_ref.child(winner_id);
-    final winner_snapshot = await winner_ref.get();
+  Future<void> select_winner(String winnerId) async {
+    // Get current submissions BEFORE they are cleared to store them for reveal
+    final currentSubmissionsSnapshot = await submissions_ref.get();
+    final currentSubmissions = currentSubmissionsSnapshot.value;
 
-    if (winner_snapshot.exists) {
-      final winner = winner_snapshot.value as Map?;
+    // Update the winner's score
+    final winnerRef = players_ref.child(winnerId);
+    final winnerSnapshot = await winnerRef.get();
+
+    if (winnerSnapshot.exists) {
+      final winner = winnerSnapshot.value as Map?;
       if (winner != null) {
-        final current_score = winner['score'] as int? ?? 0;
-        await winner_ref.update({'score': current_score + 1});
+        final currentScore = winner['score'] as int? ?? 0;
+        await winnerRef.update({'score': currentScore + 1});
       }
     }
 
-    // Set winning submission
+    // Set winning submission (points to the winner's cards within the main submissions)
     await room_ref.child('winningSubmission').set({
-      'playerId': winner_id,
+      'playerId': winnerId,
       'cards': await submissions_ref
-          .child(winner_id)
+          .child(winnerId)
           .get()
           .then((s) => s.value),
     });
 
+    // Store all submissions for this round in a separate node for all players to see
+    if (currentSubmissions != null) {
+      print('[GameService] Storing current submissions to roundSubmissionsForReveal: $currentSubmissions');
+      await round_submissions_for_reveal_ref.set(currentSubmissions);
+    } else {
+      print('[GameService] No current submissions to store for reveal.');
+      // Ensure the node is empty if there were no submissions
+      await round_submissions_for_reveal_ref.set(null);
+    }
+
     // Reset the hasSubmitted flags for all players
-    final players_snapshot = await players_ref.get();
-    if (players_snapshot.exists) {
-      final players = players_snapshot.value as Map?;
+    final playersSnapshot = await players_ref.get();
+    if (playersSnapshot.exists) {
+      final players = playersSnapshot.value as Map?;
       if (players != null) {
         for (final player_id in players.keys) {
           await players_ref.child(player_id.toString()).update({
@@ -658,6 +673,11 @@ class GameService {
     return player_hand_ref.onValue;
   }
 
+  // New Listener for round submissions to be revealed
+  Stream<DatabaseEvent> listen_to_round_submissions_for_reveal() {
+    return round_submissions_for_reveal_ref.onValue;
+  }
+
   Stream<DatabaseEvent> listen_to_room() {
     return room_ref.onValue;
   }
@@ -667,11 +687,15 @@ class GameService {
       // Set initial game state (temporary, will update after initialization)
       await update_game_state('initializing');
 
-      // Check if we need to initialize the card decks
-      final black_cards_snapshot = await black_cards_ref.get();
-      final white_cards_snapshot = await white_cards_ref.get();
+      // Clear round submissions for reveal from previous round
+      print('[GameService] Clearing roundSubmissionsForReveal during game initialization.');
+      await round_submissions_for_reveal_ref.remove();
 
-      if (!black_cards_snapshot.exists || !white_cards_snapshot.exists) {
+      // Check if we need to initialize the card decks
+      final blackCardsSnapshot = await black_cards_ref.get();
+      final whiteCardsSnapshot = await white_cards_ref.get();
+
+      if (!blackCardsSnapshot.exists || !whiteCardsSnapshot.exists) {
         // If card decks don't exist yet, we need to load them from Firestore
         await _initialize_card_decks();
       }
@@ -687,9 +711,9 @@ class GameService {
       await shuffle_white_deck();
 
       // Reset all players' submission status and winner status
-      final players_snapshot = await players_ref.get();
-      if (players_snapshot.exists) {
-        final players = players_snapshot.value as Map?;
+      final playersSnapshot = await players_ref.get();
+      if (playersSnapshot.exists) {
+        final players = playersSnapshot.value as Map?;
         if (players != null) {
           for (final player_id in players.keys) {
             await players_ref.child(player_id.toString()).update({
@@ -715,30 +739,30 @@ class GameService {
   Future<void> _initialize_card_decks() async {
     try {
       // Get card topic from the room
-      final topic_snapshot = await room_ref.child('selectedCardTopic').get();
-      final topic_id = topic_snapshot.value as String? ?? 'base_set_en';
+      final topicSnapshot = await room_ref.child('selectedCardTopic').get();
+      final topicId = topicSnapshot.value as String? ?? 'base_set_en';
 
       // Get player count to ensure we have enough cards
-      final players_snapshot = await players_ref.get();
-      int player_count = 0;
-      if (players_snapshot.exists) {
-        final players = players_snapshot.value as Map?;
-        player_count = players?.length ?? 0;
+      final playersSnapshot = await players_ref.get();
+      int playerCount = 0;
+      if (playersSnapshot.exists) {
+        final players = playersSnapshot.value as Map?;
+        playerCount = players?.length ?? 0;
       }
 
       // We need at least 4 cards per player + some extra for gameplay
-      int min_white_cards_needed = max(
+      int minWhiteCardsNeeded = max(
         15,
-        player_count * 8,
+        playerCount * 8,
       ); // 4 initial cards + 4 extra per player
 
       print(
-        'Initializing card decks for topic: $topic_id, need at least $min_white_cards_needed white cards',
+        'Initializing card decks for topic: $topicId, need at least $minWhiteCardsNeeded white cards',
       );
 
       // In a real implementation, you would use the topic_id to fetch specific card sets
       // For now, we're using a generous sample set to ensure enough cards
-      final black_cards = [
+      final blackCards = [
         {'text': 'Why am I sticky?', 'type': 'black', 'pick': 1},
         {'text': 'What\'s my secret power?', 'type': 'black', 'pick': 1},
         {
@@ -782,7 +806,7 @@ class GameService {
       ];
 
       // Generate plenty of white cards to ensure we don't run out
-      List<Map<String, dynamic>> white_cards = [
+      List<Map<String, dynamic>> whiteCards = [
         {'text': 'An unholy amount of glitter.', 'type': 'white', 'id': 'w1'},
         {'text': 'Crying into a bowl of cereal.', 'type': 'white', 'id': 'w2'},
         {'text': 'A 50-foot-tall robot.', 'type': 'white', 'id': 'w3'},
@@ -836,25 +860,25 @@ class GameService {
       ];
 
       // Add more generated white cards if needed to meet minimum
-      if (white_cards.length < min_white_cards_needed) {
-        int additional_cards_needed =
-            min_white_cards_needed - white_cards.length;
-        for (int i = 0; i < additional_cards_needed; i++) {
-          final card_num = white_cards.length + 1;
-          white_cards.add({
-            'text': 'Additional white card #$card_num',
+      if (whiteCards.length < minWhiteCardsNeeded) {
+        int additionalCardsNeeded =
+            minWhiteCardsNeeded - whiteCards.length;
+        for (int i = 0; i < additionalCardsNeeded; i++) {
+          final cardNum = whiteCards.length + 1;
+          whiteCards.add({
+            'text': 'Additional white card #$cardNum',
             'type': 'white',
-            'id': 'w${card_num}',
+            'id': 'w$cardNum',
           });
         }
       }
 
       // Save decks to Firebase
-      await black_cards_ref.set(black_cards);
-      await white_cards_ref.set(white_cards);
+      await black_cards_ref.set(blackCards);
+      await white_cards_ref.set(whiteCards);
 
       print(
-        'Successfully initialized card decks: ${black_cards.length} black cards, ${white_cards.length} white cards',
+        'Successfully initialized card decks: ${blackCards.length} black cards, ${whiteCards.length} white cards',
       );
     } catch (e) {
       print('Error initializing card decks: $e');
@@ -863,18 +887,18 @@ class GameService {
 
   // Helper function to get Card Czar ID
   Future<String?> get_card_czar_id() async {
-    final players_snapshot = await players_ref.get();
+    final playersSnapshot = await players_ref.get();
 
-    if (players_snapshot.exists) {
-      final players = players_snapshot.value as Map?;
+    if (playersSnapshot.exists) {
+      final players = playersSnapshot.value as Map?;
 
       if (players != null) {
         for (final entry in players.entries) {
-          final player_id = entry.key;
-          final player_data = entry.value;
+          final playerId = entry.key;
+          final playerData = entry.value;
 
-          if (player_data is Map && player_data['isCardCzar'] == true) {
-            return player_id.toString();
+          if (playerData is Map && playerData['isCardCzar'] == true) {
+            return playerId.toString();
           }
         }
       }
@@ -885,17 +909,17 @@ class GameService {
 
   // Check if current player is Card Czar
   Future<bool> is_current_player_card_czar() async {
-    final card_czar_id = await get_card_czar_id();
-    return player_id == card_czar_id;
+    final cardCzarId = await get_card_czar_id();
+    return player_id == cardCzarId;
   }
 
   // Check if current player is host
   Future<bool> is_current_player_host() async {
-    final player_snapshot = await player_ref.get();
+    final playerSnapshot = await player_ref.get();
 
-    if (player_snapshot.exists) {
-      final player_data = player_snapshot.value as Map?;
-      return player_data?['isHost'] == true;
+    if (playerSnapshot.exists) {
+      final playerData = playerSnapshot.value as Map?;
+      return playerData?['isHost'] == true;
     }
 
     return false;

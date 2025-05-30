@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'dart:math';
 import '../components/player_list.dart';
 import '../mixins/lobby_state_mixin.dart'; // Import the mixin
 
@@ -274,58 +273,52 @@ class _HostLobbyScreenState extends State<HostLobbyScreen>
                           offset: const Offset(0, 2),
                         ),
                       ],
-                    ),
-                    child: Column(
-                      children: [                        // Room ID container fixed to screen width - clickable to copy
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              Clipboard.setData(
-                                ClipboardData(text: widget.roomId),
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Room ID copied to clipboard!',
-                                  ),
-                                  duration: Duration(seconds: 1),
-                                  backgroundColor: Colors.green,
+                    ),                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(
+                              ClipboardData(text: widget.roomId),
+                            );
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Room ID copied to clipboard!',
                                 ),
-                              );
-                            },
-                            borderRadius: BorderRadius.circular(8.0),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical: 12.0,
+                                duration: Duration(seconds: 1),
+                                backgroundColor: Colors.green,
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    spreadRadius: 1,
-                                    blurRadius: 3,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                widget.roomId,
-                                style: TextStyle(
-                                  fontSize:
-                                      Theme.of(
-                                        context,
-                                      ).textTheme.headlineSmall?.fontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                  letterSpacing: 1.0,
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 8.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  spreadRadius: 1,
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 2),
                                 ),
-                                textAlign: TextAlign.center,
+                              ],
+                            ),
+                            child: Text(
+                              widget.roomId,
+                              style: TextStyle(
+                                fontSize:
+                                    Theme.of(
+                                      context,
+                                    ).textTheme.headlineSmall?.fontSize,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                                letterSpacing: 1.0,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ),
                         ),
